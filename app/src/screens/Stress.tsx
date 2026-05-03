@@ -90,7 +90,7 @@ export function Stress() {
         <p className="text-sm">
           The Hot House World scenario sits <b>{((ref.lr - STRESS_2030.find((s) => s.scenario === 'Net Zero 2050')!.lr) * 100).toFixed(0)} pp</b> above Net Zero 2050 in loss ratio
           (62 % vs 51 %), implying a <b>USD 135 m</b> swing in expected loss. Under BNM CRST 2024 §6.3, this triggers an additional <b>+8 %</b> regional
-          risk-capital buffer recommendation. The proposed mitigation strategy recovers ~70 % of the swing.
+          risk-capital buffer recommendation. The proposed mitigation strategy recovers <b>~73 %</b> (USD 98 m of the USD 135 m swing){/* derivation: exhibits/results/key_numbers.json stress_test_2030_aggregate -> (744 - 646) / (744 - 609) = 0.7259 */}.
         </p>
       </Card>
     </div>

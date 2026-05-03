@@ -139,7 +139,7 @@ Mitigation — fifty-three-point-eight percent, six hundred and forty-six millio
 Delayed Transition — fifty-eight-point-three percent, seven hundred million.
 Hot House World — sixty-two percent, seven hundred and forty-four million.
 
-The headline number is the *swing*. **Eleven percentage points of loss ratio between Hot House and Net Zero. One hundred and thirty-five million dollars on a 1.2 billion portfolio.** The proposed mitigation strategy recovers about seventy percent of that swing.
+The headline number is the *swing*. **Eleven percentage points of loss ratio between Hot House and Net Zero. One hundred and thirty-five million dollars on a 1.2 billion portfolio.** The proposed mitigation strategy recovers **about seventy-three percent** of that swing — ninety-eight million dollars of the one-hundred-and-thirty-five-million-dollar swing (Mitigation 2030 expected loss six hundred and forty-six million versus Hot House seven hundred and forty-four million and Net Zero six hundred and nine million).
 
 That swing is the conversation we should be having with the client. Over to [P3].
 

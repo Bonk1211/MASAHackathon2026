@@ -4,16 +4,18 @@
 
 export type Tier = 'A' | 'B' | 'C' | 'D' | 'E';
 
+// Country tier — canonical table from deliverables/05_cedent_screening_framework.md §3
+// (do not hand-edit; sync if framework table changes).
 export const COUNTRY_TIER: Record<string, { tier: Tier; residualPct: number }> = {
-  Singapore:        { tier: 'A', residualPct: -12 },
   Philippines:      { tier: 'A', residualPct: -49 },
-  Indonesia:        { tier: 'B', residualPct: -19 },
-  Thailand:         { tier: 'B', residualPct:   3 },
-  Cambodia:         { tier: 'C', residualPct:  13 },
+  Indonesia:        { tier: 'A', residualPct: -19 },
+  Singapore:        { tier: 'A', residualPct: -12 },
+  Myanmar:          { tier: 'B', residualPct:   4 },
+  Thailand:         { tier: 'B', residualPct:   6 },
+  Cambodia:         { tier: 'B', residualPct:  13 },
   Vietnam:          { tier: 'C', residualPct:  24 },
-  Malaysia:         { tier: 'D', residualPct:  32 },
+  Malaysia:         { tier: 'C', residualPct:  32 },
   'Lao PDR':        { tier: 'D', residualPct:  93 },
-  Myanmar:          { tier: 'D', residualPct:  47 },
   'Brunei Darussalam': { tier: 'E', residualPct: 287 },
 };
 
@@ -43,12 +45,13 @@ export const SECTORS = [
 ] as const;
 
 // Sector tier from weighted residual (weighted by cedent's GWP mix per sector).
-// Bands per 05_cedent_screening_framework.md §4.
+// Bands per 05_cedent_screening_framework.md §4 (canonical):
+//   < +25 → A · +25..+75 → B · +75..+150 → C · +150..+300 → D · > +300 → E.
 export function sectorTier(weightedResidualPct: number): Tier {
-  if (weightedResidualPct >= 200) return 'E';
-  if (weightedResidualPct >= 100) return 'D';
-  if (weightedResidualPct >= 30)  return 'C';
-  if (weightedResidualPct >= -20) return 'B';
+  if (weightedResidualPct > 300) return 'E';
+  if (weightedResidualPct >= 150) return 'D';
+  if (weightedResidualPct >= 75)  return 'C';
+  if (weightedResidualPct >= 25)  return 'B';
   return 'A';
 }
 

@@ -32,7 +32,7 @@ Each entry is structured:
 
 ### Q2. Why two XGBoost specifications?
 
-**A.** A reinsurance committee asks two distinct questions, and they call for different models. The autoregressive model — with lag-1 and lag-2 emissions as features — wins on forecast accuracy because last year's emissions are extraordinarily informative. The structural model — without lags — isolates the long-run drivers (population gain 0.54, GDP gain 0.31, validating STIRPAT). If we used only the autoregressive model, our feature importance would be dominated by lagged GHG, which is mathematically expected but commercially uninformative. Reporting both lets the committee see the forecast and the driver story without mixing them.
+**A.** A reinsurance committee asks two distinct questions, and they call for different models. The autoregressive model — with lag-1 and lag-2 emissions as features — wins on forecast accuracy because last year's emissions are extraordinarily informative. The structural model — without lags — isolates the long-run drivers (log GDP gain 0.50, population gain 0.40, validating STIRPAT). If we used only the autoregressive model, our feature importance would be dominated by lagged GHG, which is mathematically expected but commercially uninformative. Reporting both lets the committee see the forecast and the driver story without mixing them.
 
 **Backup.** `exhibits/results/key_numbers.json` (autoregressive feature importance) vs `exhibits/results/structural_drivers.json` (structural feature importance).
 
@@ -126,7 +126,7 @@ Each entry is structured:
 
 ### Q11. What if the proposed mitigation product fails to launch — does the analysis still hold?
 
-**A.** Yes. The headline 11 pp loss-ratio swing is across the three NGFS reference scenarios alone — Net Zero / Delayed / Hot House. The Mitigation pathway is the *fourth* scenario, an additional client-specific lever that recovers about 70 % of the swing if implemented. If it does not launch, the client still faces a 11 pp swing and our other recommendations — the cedent screening framework, the +8 % capital buffer, the cat-bond issuance — remain independently actionable. The Mitigation product is a *value-add*, not a *prerequisite*, in the analysis.
+**A.** Yes. The headline 11 pp loss-ratio swing is across the three NGFS reference scenarios alone — Net Zero / Delayed / Hot House. The Mitigation pathway is the *fourth* scenario, an additional client-specific lever that recovers **72.6 %** of the swing if implemented — Mitigation 2030 expected loss USD 646 m vs Hot House USD 744 m / Net Zero USD 609 m, so (744 − 646) / (744 − 609) = 72.6 %. If it does not launch, the client still faces a 11 pp swing and our other recommendations — the cedent screening framework, the +8 % capital buffer, the cat-bond issuance — remain independently actionable. The Mitigation product is a *value-add*, not a *prerequisite*, in the analysis.
 
 **Backup.** Stress-test table in `01_report.md` §6 — note the four-row structure with Mitigation as the optional pathway.
 

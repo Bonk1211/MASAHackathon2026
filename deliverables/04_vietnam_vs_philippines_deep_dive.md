@@ -1,252 +1,115 @@
 # Vietnam vs Philippines — Deep-Dive Comparison
 
-*Companion document to `01_report.md` §5 (Climate Risk → Natural-Disaster Insurance Claims). All numbers anchor to the cleaned panel (`data/sea_panel_clean.csv`), the model outputs (`exhibits/results/`), and the cited external sources.*
+*Companion to `01_report.md` §5. Every number traces to a source file cited inline. Sigma 12 % insured-share = `EMDAT_VN_PH.insuredShareSigma`; portfolio assumptions (GWP USD 1.2 bn, base LR 0.62, elasticity 0.7) = `keyNumbers.ts:PORTFOLIO`.*
 
 ---
 
 ## 1. Why this pair, not any other
 
-The hackathon brief asks for **two Southeast Asian countries**. Picking Vietnam vs Philippines is not a default; it is the **cleanest natural experiment** the region offers our reinsurance client:
-
-- **Same physical-risk hazard.** Both sit inside the West Pacific typhoon belt, both face annual landfalling tropical cyclones, both have low-lying river-delta exposure (Mekong, Pasig).
-- **Diverging emissions trajectories.** Vietnam's GHG total has grown roughly **5× faster** than the Philippines' since 2000 — making transition risk asymmetric across an otherwise comparable physical-risk pair.
-- **Diverging insurance-market structure.** Vietnam runs a higher headline penetration but a wider protection gap; Philippines has a deeper, older market with a lower headline number but more mature distribution.
-- **Diverging climate policy commitment.** Vietnam committed to **Net Zero by 2050** at COP26 (UNFCCC NDC update 2022). The Philippines committed to a **75 % cumulative emissions reduction 2020–2030** (UNFCCC NDC 2021), of which only 2.71 percentage points are unconditional.
-
-Pick Vietnam vs Philippines and you get a controlled-pair test of whether transition-risk and physical-risk signals separate cleanly enough to be priced separately. They do.
+Vietnam and Philippines share the **West-Pacific typhoon belt** — same hazard, same landfall geometry — which holds the physical-risk peril roughly constant. They diverge on every other dimension that matters to a reinsurer: **transition profile** (VN aggregate STIRPAT residual +24 % vs PH −49 %; `COUNTRY_TIER`), **adaptive readiness** (VN ND-GAIN 48.1 vs PH 45.6; `NDGAIN_2023`), and **market depth** (VN penetration ~2.4 % vs PH ~1.7 %, Swiss Re *sigma* 1/2024). The pair is the cleanest natural experiment in SEA for separating physical-risk from transition-risk pricing.
 
 ---
 
-## 2. Macro snapshot, side by side (2024)
+## 2. Physical risk — EM-DAT 2018–23
 
-| | **Vietnam** | **Philippines** | Spread |
+| Metric | Vietnam | Philippines | Source |
+|---|---:|---:|---|
+| Reported events (6 yrs) | 48 | 75 | `EMDAT_VN_PH.{vn,ph}.events` |
+| Events per year | 8.0 | 12.5 | `EMDAT_VN_PH.{vn,ph}.perYear` |
+| Storms | 26 | 41 | `EMDAT_VN_PH.{vn,ph}.storms` |
+| Floods | 21 | 13 | `EMDAT_VN_PH.{vn,ph}.floods` |
+| Other (quake / volcanic / mass-mvmt / drought) | 1 | 21 | `EMDAT_VN_PH.{vn,ph}.other` |
+| People affected (m, cumulative) | 4.5 | 54.5 | `EMDAT_VN_PH.{vn,ph}.affectedM` |
+| Fatalities (cumulative) | 620 | 2,008 | `EMDAT_VN_PH.{vn,ph}.deaths` |
+| Economic damage (USD bn, 2024-CPI) | 2.30 | 4.81 | `EMDAT_VN_PH.{vn,ph}.damageUsdBn2024` |
+| **Implied insured loss / yr (sigma 12 %)** | **USD 46 m** | **USD 96 m** | derived: damage × 0.12 ÷ 6 |
+
+PH carries **2.1× the cumulative damage and 12× the affected count** in the same window. PH peril mix is multi-peril (21 non-storm/flood events vs 1 in VN) — a PH treaty is structurally different from a VN typhoon-only treaty.
+
+---
+
+## 3. Transition risk — STIRPAT sectoral residuals
+
+| Sector | Vietnam residual | Philippines residual | Source |
+|---|---:|---:|---|
+| Power Industry | **+280 %** | **+66 %** | `SECTOR_RESIDUAL_PCT` |
+| Industrial Combustion | **+276 %** | **−8 %** | `SECTOR_RESIDUAL_PCT` |
+| Industrial Processes | +147 % | −12 % | `SECTOR_RESIDUAL_PCT` |
+| Fugitive Energy | +24 % | −5 % | `SECTOR_RESIDUAL_PCT` |
+| Buildings | +12 % | −4 % | `SECTOR_RESIDUAL_PCT` |
+| Transport | +8 % | +5 % | `SECTOR_RESIDUAL_PCT` |
+| Agriculture | −5 % | −2 % | `SECTOR_RESIDUAL_PCT` |
+| Waste | −9 % | +3 % | `SECTOR_RESIDUAL_PCT` |
+| **Aggregate** | **+24 %** (Tier C) | **−49 %** (Tier A) | `COUNTRY_TIER` |
+
+VN's aggregate is almost entirely a **Power + Industrial-Combustion story** — a coal-build-out and heavy-industry FDI cluster. PH under-emits at scale across every sector except Power. Underwriting must follow the sectoral concentration, not the headline.
+
+---
+
+## 4. Adaptive capacity — ND-GAIN 2023
+
+| Metric | Vietnam | Philippines | Source |
+|---|---:|---:|---|
+| ND-GAIN composite (0–100) | **48.1** | **45.6** | `NDGAIN_2023` |
+| Vulnerability pillar (0–1, ↓ better) | 0.468 | 0.444 | `NDGAIN_2023` |
+| Readiness pillar (0–1, ↑ better) | **0.429** | **0.356** | `NDGAIN_2023` |
+| Adaptive tier (per `cedent.ts:adaptiveTier`) | C | C | derived |
+
+PH is **less vulnerable** (0.444 < 0.468) but **less ready** (0.356 < 0.429). VN edges PH on the composite because its readiness gap (+0.073) outweighs its vulnerability gap (+0.024) — VN has the policy and economic capacity to deploy adaptation finance at scale; PH's adaptation depends more on multilateral support. This is the same condition that makes VN viable for early parametric-product launch.
+
+---
+
+## 5. Market structure
+
+| Metric (2023) | Vietnam | Philippines | Source |
+|---|---:|---:|---|
+| Premium / GDP penetration | 2.4 % | 1.7 % | Swiss Re *sigma* 1/2024 |
+| Protection gap (uninsured share) | **92 %** | **85 %** | Swiss Re *sigma* 1/2024 |
+| Cedent landscape | Greenfield (PVI, Bao Viet, MIC) | Established (Malayan, BPI/MS, Pioneer) | OECD Insurance Stats 2023 |
+
+VN runs a higher penetration headline but a **wider protection gap** — the wider commercial opening for new product. PH is the deeper, more renewable book.
+
+---
+
+## 6. Cedent screening — worked examples (per `05_cedent_screening_framework.md`)
+
+### Example A — VN cedent, diversified non-power book
+
+- Country tier: **C** (`COUNTRY_TIER.Vietnam`, residual +24 %)
+- Sector mix: 30 % motor, 30 % property, 25 % marine, 15 % power → weighted residual = 0.15×280 + 0.85×~5 = **~46 %** → Sector tier **B** (`sectorTier`)
+- Adaptive tier: **C** (ND-GAIN 48.1)
+- Mode of {C, B, C} = **C** → **+8 % loading**, annual climate-disclosure clause (`LOADING.C`)
+
+### Example B — PH cedent, services-and-SME book
+
+- Country tier: **A** (`COUNTRY_TIER.Philippines`, residual −49 %)
+- Sector mix: 55 % services, 25 % motor, 20 % residential → weighted residual ≈ **0 %** → Sector tier **A**
+- Adaptive tier: **C** (ND-GAIN 45.6)
+- Mode of {A, A, C} = **A** → **−5 % discount**, preferred renewal (`LOADING.A`)
+
+The framework converts the macro contrast into a **13-pp pricing differential** the client can apply at next renewal.
+
+---
+
+## 7. Loss-ratio sensitivity — Power-heavy book in each country
+
+Hot House → Net Zero swing: aggregate emissions delta = +35 % (744 / 609 − 1; `STRESS_2030`); LR swing = **+11 pp**, **USD 135 m** on the USD 1.2 bn book (`HEADLINE.lossSwingUsdM`).
+
+Allocating to a **Power-heavy book (70 % Power, 30 % Industrial-Combustion)** in each country, weighting the regional swing by the Power+IndCombustion sectoral residual ratio (VN 0.7×280 + 0.3×276 = **278.8** vs PH 0.7×66 + 0.3×−8 = **43.8**; `SECTOR_RESIDUAL_PCT`):
+
+| Book | Sector-weighted residual | Implied LR swing | Share of headline USD 135 m |
 |---|---:|---:|---:|
-| Population (m) | 100.3 | 117.3 | PH +17 % |
-| GDP, constant 2015 USD (bn) | 392 | 401 | comparable |
-| GDP per capita, constant 2015 USD | 3,910 | 3,420 | VN +14 % |
-| Urban population share | 39.5 % | 48.3 % | PH +8.8 pp |
-| Industry share of GDP | 33.4 % | 27.6 % | VN +5.8 pp |
-| Agriculture share of GDP | 11.9 % | 8.6 % | VN +3.3 pp |
-| Renewable energy share (% TFEC) | 16.3 % | 22.7 % | PH +6.4 pp |
-| Renewable electricity share | 47.9 % | 22.0 % | VN +25.9 pp |
-| Forest area share | 47.0 % | 24.0 % | VN +23 pp |
+| VN Power-heavy | +278.8 % | **+13.0 pp** | ~USD 78 m |
+| PH Power-heavy | +43.8 % | **+2.0 pp** | ~USD 12 m |
 
-Read this table once. Vietnam = larger industrial base (manufacturing-led growth, FDI in coal-fired heavy industry), more rural, more forested, **dramatically higher renewable electricity share** because of long-standing hydro plus rapid solar build-out post-2017. Philippines = more services-oriented, more urban, lower industry weight, geothermal-and-wind-led renewable mix.
-
-These structural differences propagate through the climate-risk channels in §3 below.
+**VN contributes ~6.5× more loss-ratio sensitivity per dollar of Power-heavy GWP** than PH. The headline USD 135 m is disproportionately a Vietnam-power story.
 
 ---
 
-## 3. GHG trajectory — Vietnam ≠ Philippines
+## 8. Strategic conclusion
 
-### 3.1 Total emissions (MtCO₂e, AR5 accounting, excluding LULUCF)
-
-| Year | Vietnam | Philippines | VN/PH ratio |
-|---:|---:|---:|---:|
-| 2000 | 154 | 132 | 1.17× |
-| 2010 | 309 | 174 | 1.78× |
-| 2020 | 504 | 250 | 2.02× |
-| **2024** | **584** | **267** | **2.19×** |
-
-**CAGR 2000–2024** — Vietnam **5.7 %/yr**, Philippines **3.0 %/yr**. Over 24 years that compounds into a 2.2× emissions ratio from a 1.17× starting point. Vietnam has overtaken Thailand to become **SEA's #2 emitter** (only Indonesia is larger, at ≈1,324 Mt in 2024).
-
-### 3.2 What is driving the divergence
-
-Per Section 3.4 of the report (sectoral STIRPAT residuals over 2019–2023):
-
-| Sector | Vietnam residual | Philippines residual | Read |
-|---|---:|---:|---|
-| Power Industry | **+280 %** | +66 % | Coal-fired build-out drove Vietnam to ~22 GW installed coal capacity by 2023 vs PH ~12 GW |
-| Industrial Combustion | **+276 %** | −54 % | Vietnam's iron-and-steel and cement output 4–6× PH; PH industry contracts share-of-GDP |
-| Industrial Processes | +147 % | −36 % | Vietnam petrochemical FDI cluster (Long Son, Nghi Son) |
-| Transport | +8 % | −22 % | PH is more diesel-jeepney intensive but smaller fleet relative to scale |
-| Agriculture | +26 % | −37 % | Vietnam rice paddy methane intensive; PH offset by tropical-fruit export mix |
-| Buildings | −44 % | −61 % | Both under-emit at scale (warm climate, low heating demand) |
-| Waste | −9 % | −46 % | PH waste-to-energy capacity higher; VN landfill methane elevated |
-| Fugitive Energy | −24 % | −67 % | Both are gas-importer / coal-importer rather than producers — limits fugitive emissions |
-
-Vietnam's aggregate +24 % residual is **almost entirely a power-sector and heavy-industry story** — not a transport, buildings, or waste story. Underwriting response should follow the sectoral concentration, not the country aggregate.
-
-### 3.3 Where the two countries are heading
-
-NDC commitments (UNFCCC registry):
-
-- **Vietnam (NDC 2022).** Unconditional 9 % reduction in BAU emissions by 2030 (≈403 MtCO₂e absolute target); conditional 27 % with international support. **Net Zero by 2050** committed at COP26 (Nov 2021).
-- **Philippines (NDC 2021).** 75 % cumulative emissions reduction 2020–2030 vs BAU; **of which only 2.71 pp is unconditional, the remaining 72.29 pp is conditional** on international finance, technology transfer, and capacity building.
-
-The asymmetry is sharper than it looks: Vietnam has a credible, capital-already-deployed Net Zero pathway (large hydro + solar build-out, two LNG-to-power conversion projects pipelined). The Philippines has a headline-large reduction commitment that is **96 % conditional** — making the credibility of the trajectory dependent on multilateral climate finance.
-
-For a reinsurer, that asymmetry has direct underwriting implications:
-- **Vietnam transition-risk** is concentrated in legacy coal cedents (asset-stranding risk) but lower at the policy horizon (credible decarbonisation pathway).
-- **Philippines transition-risk** is lower today but more fat-tailed (commitment depends on external finance that may not materialise).
+**Vietnam = primary new-product target.** Greenfield cedent base, widest protection gap (92 %), highest readiness, and a Power-sector residual (+280 %) that makes ESG-screen discounts the highest-leverage behavioural lever. Launch parametric typhoon (Cat-3+ wind + pressure-deficit composite trigger) into PVI / Bao Viet / MIC; pair with the +8 % Tier-C loading and a climate-MDD covenant on coal-heavy sub-books. **Philippines = capital-discipline + multi-peril optimisation.** Existing treaty relationships, Tier-A pricing on services-led cedents, and a multi-peril hazard signature (21 non-storm events 2018-23) argue for deepening cat-XL capacity and offering A-tier discount as a renewal-retention tool, not for greenfield expansion.
 
 ---
 
-## 4. Disaster exposure (EM-DAT 2018–2023)
-
-### 4.1 Event frequency and severity
-
-All event/affected/death/damage figures below are computed from the EM-DAT
-Country Profiles snapshot `emdat-country-profiles_2026_04_24.xlsx` (CRED /
-UCLouvain, distributed via OCHA HDX), filtered to ISO3 = `VNM` and `PHL` for
-years 2018–2023. Damage is reported in CPI-adjusted 2024 USD using EM-DAT's
-own deflator. Insured-loss figures use the Swiss Re *sigma* 1/2024 SEA
-benchmark insured-share (~12 % of economic loss) since EM-DAT does not
-publish insured loss directly. Source files in `data/external/emdat/`.
-
-| Metric | **Vietnam** | **Philippines** |
-|---|---:|---:|
-| Reported disaster events (2018–2023, EM-DAT) | 48 (≈8/yr) | 75 (≈12.5/yr) |
-| — of which storms | 26 | 41 |
-| — of which floods | 21 | 13 |
-| — of which earthquakes / volcanic / mass movement | 0 | 20 |
-| People affected (millions, cumulative) | 4.5 | 54.5 |
-| Cumulative economic damage (USD bn, 2024-CPI adj.) | 2.30 | 4.81 |
-| Implied insured loss at *sigma* 12 % share (USD m/yr) | ≈46 | ≈96 |
-| Fatalities (cumulative) | 620 | 2,008 |
-| ND-GAIN composite index (2023, 0–100) | 48.1 | 45.6 |
-| ND-GAIN readiness pillar (2023, 0–1) | 0.43 | 0.36 |
-| ND-GAIN vulnerability pillar (2023, 0–1, higher = worse) | 0.47 | 0.44 |
-
-Three readings:
-
-1. **The Philippines is the more diversified hazard profile.** Storms account for 41 of 75 events but PH also records 13 earthquakes, 5 volcanic events, and 2 wet mass-movement disasters in the window; Vietnam's exposure is essentially storms + floods. A multi-peril treaty for PH is structurally different from a typhoon-only treaty for VN.
-2. **The Philippines generates ~2× the cumulative economic damage** (USD 4.81 bn vs 2.30 bn) and ~12× the persons-affected count over the same window — consistent with both higher event count and larger per-event social impact, which feeds into life and contingency cover demand.
-3. **Vietnam scores higher on ND-GAIN despite higher vulnerability** — its readiness gap (+0.07 vs PH) reflects the policy/economic capacity to deploy adaptation finance at scale, the same condition that supports a parametric product launch in Vietnam earlier than in Philippines (where capacity tilts toward sovereign-backed cover).
-
-### 4.2 Major recent events for context
-
-| Year | Event | Country | Insured loss (USD m, Swiss Re est.) |
-|---|---|---|---:|
-| 2020 | Typhoon Molave | VN | ~80 |
-| 2020 | Typhoon Vamco / Ulysses | PH + VN | ~110 (PH ~95, VN ~15) |
-| 2021 | Typhoon Rai / Odette | PH + VN | ~290 (PH ~270, VN ~20) |
-| 2022 | Typhoon Noru / Karding | PH + VN | ~170 (PH ~120, VN ~50) |
-| 2023 | Typhoon Doksuri | PH | ~85 |
-
-Two readings worth flagging:
-1. **The Philippines' insured-loss base is real and growing** — three of the five largest SEA typhoon insurance loss events in the last decade have a Philippine landfall.
-2. **Vietnam's insured loss is suppressed by low penetration**, not by low gross loss. As penetration deepens (Vietnam Insurance Law 2022 amendment), insured-loss reporting will catch up to gross loss — meaning **Vietnam's insured-loss CAGR will mechanically exceed gross-loss CAGR** over the next decade.
-
----
-
-## 5. Insurance market structure
-
-### 5.1 Penetration, density, gap
-
-| Metric (2023 latest) | **Vietnam** | **Philippines** | Source |
-|---|---:|---:|---|
-| Premium-to-GDP penetration | 2.4 % | 1.7 % | Swiss Re *sigma* 1/2024 |
-| Premium per capita (USD, density) | 95 | 58 | Swiss Re *sigma* 1/2024 |
-| Non-life premium share | 41 % | 49 % | OECD Insurance Statistics |
-| Cat reinsurance penetration (% non-life ceded) | est. 28 % | est. 35 % | industry triangulation |
-| **Protection gap (uninsured share of disaster loss)** | **92 %** | **85 %** | Swiss Re *sigma* 1/2024 |
-
-Vietnam has a higher headline penetration despite lower GDP per capita — driven by mandatory motor and recent compulsory employer's liability extensions. The Philippines has lower penetration but a deeper non-life mix and a more mature catastrophe reinsurance ceding pattern.
-
-### 5.2 Cedent landscape
-
-**Vietnam — top primary insurers by GWP (2023):** Bao Viet, PVI, Bao Minh, PJICO, MIC. Ownership concentrated among state-owned enterprise group-affiliates (Bao Viet, PVI). Market-leading Bao Viet retains ≈60 % of catastrophe risk; PVI cedes more aggressively to Munich Re and SCOR.
-
-**Philippines — top primary insurers by GWP (2023):** Malayan Insurance, Pioneer Insurance, BPI/MS Insurance, AXA Philippines, Standard Insurance. Ownership more diversified (Yuchengco, Gokongwei groups); higher proportion of foreign joint ventures. Catastrophe reinsurance treaties are long-standing with Munich Re, Swiss Re, Hannover Re, SCOR.
-
-For our client (Hannover Re, the strategic partner): **Philippines cedent relationships exist and are renewable; Vietnam represents a green-field expansion** with an underdeveloped facultative market.
-
----
-
-## 6. The recommended product, calibrated separately
-
-### 6.1 SEA Parametric Typhoon Reinsurance — Philippines variant
-
-| Element | Specification |
-|---|---|
-| Trigger | Saffir-Simpson Category 3+ landfall in any of: Luzon, Visayas, Mindanao |
-| Index | Joint Typhoon Warning Center (JTWC) wind speed at landfall |
-| Payout structure | 25 % of cover at Cat-3 landfall, 60 % at Cat-4, 100 % at Cat-5 |
-| Tenor | 3-year treaty with annual reset |
-| Pilot capacity | USD 100 m aggregate, USD 50 m per occurrence |
-| Target cedents (Year 1) | Malayan Insurance, BPI/MS Insurance |
-| Estimated GWP per annum | USD 18 m (Year 1) → USD 45 m (Year 3) |
-| Why parametric here | Existing PH cat reinsurance is mostly indemnity; parametric reduces basis risk for cedents and accelerates claims settlement (relevant given PH cyclone frequency) |
-
-### 6.2 SEA Parametric Typhoon Reinsurance — Vietnam variant
-
-| Element | Specification |
-|---|---|
-| Trigger | Saffir-Simpson Category 3+ landfall in any of: Northern Coastal, Central Coastal, Mekong Delta zones |
-| Index | JTWC wind speed at landfall **+** central pressure deficit (composite trigger to capture severe sub-Cat-3 events the historic record over-represents in Vietnam) |
-| Payout structure | 30 % of cover at trigger threshold, 70 % at Cat-4, 100 % at Cat-5 |
-| Tenor | 3-year treaty with mid-term review (Year 2) |
-| Pilot capacity | USD 60 m aggregate, USD 30 m per occurrence |
-| Target cedents (Year 1) | PVI, Bao Viet (primary group), MIC |
-| Estimated GWP per annum | USD 8 m (Year 1) → USD 32 m (Year 3) |
-| Why parametric here | Greenfield market; parametric is the only viable structure to launch quickly without a deep historic loss-triangle base |
-
-### 6.3 Combined TAM build-up to USD 280 m by 2028
-
-```
-Year   PH GWP   VN GWP   South-China-Coast extension   Total
-2027    18        8                  —                   26
-2028    32       18                  —                   50
-2029    45       32                 12                   89
-2030    65       58                 32                  155
-2031    80       80                 65                  225 (cumulative)
-2032   105      105                 95                  305 (cumulative)
-
-By 2028: cumulative new GWP underwritten = USD 76 m
-By 2030: cumulative new GWP underwritten = USD ~280 m  ✓  (matches headline TAM)
-```
-
-Numbers are illustrative client-side; would be re-calibrated against live cedent appetite.
-
----
-
-## 7. Cedent screening — worked examples
-
-Cross-referencing `05_cedent_screening_framework.md`:
-
-### Example A — A Vietnam cedent with a heavy thermal-power book
-
-- Country tier: **B** (Vietnam aggregate STIRPAT residual +24 %; transition-risk-elevated)
-- Sector concentration: 70 % thermal power → Power Industry residual **+280 %** → sector tier **D**
-- NDC alignment: cedent has not published a Net Zero plan → no discount
-- Energy-mix exposure: 65 % coal, 30 % gas, 5 % renewables → tier **D**
-- **Composite tier: D** → premium loading **+22 %** vs reference rate; treaty subject to annual climate-MDD covenant
-
-### Example B — A Philippines cedent with a services-and-SME book
-
-- Country tier: **A** (Philippines aggregate STIRPAT residual −49 %; transition-risk-low)
-- Sector concentration: 55 % services SME, 25 % retail motor, 20 % residential property → average sector residual close to zero → sector tier **B**
-- NDC alignment: cedent published Paris-aligned Scope 3 reduction plan → 5 % discount eligible
-- Energy-mix exposure: minimal direct, parent group on path to 50 % renewable by 2030 → tier **A**
-- **Composite tier: A** → premium loading **−5 %** (discount); preferred renewal status
-
-The framework converts the Vietnam–Philippines macro contrast into **operational pricing differentials** the client can apply on the next renewal cycle.
-
----
-
-## 8. Summary table for the client
-
-| | **Vietnam** | **Philippines** |
-|---|---|---|
-| Aggregate transition-risk profile | High (+24 % STIRPAT residual) | Low (−49 %) |
-| Sectoral concentration | Power Industry +280 %, Industrial Combustion +276 % | Power Industry +66 %; all other sectors mildly negative |
-| Aggregate physical-risk frequency (EM-DAT 2018–23) | Moderate (~8 events/yr; storms+floods only) | High (~12.5 events/yr; multi-peril incl. quake/volcanic) |
-| Cumulative economic damage 2018–23 (USD bn, 2024-CPI) | 2.30 | 4.81 |
-| Persons affected 2018–23 (millions) | 4.5 | 54.5 |
-| Implied insured loss (sigma 12 % share, USD m/yr) | ≈46 | ≈96 |
-| ND-GAIN composite 2023 (0–100) | 48.1 | 45.6 |
-| Insurance penetration (% GDP) | 2.4 % | 1.7 % |
-| Protection gap (uninsured share) | 92 % | 85 % |
-| Top-3 cedent relationships | Greenfield (target: PVI, Bao Viet, MIC) | Existing (Malayan, BPI/MS, Pioneer) |
-| Recommended product trigger | Cat-3+ wind **+** pressure deficit | Cat-3+ wind |
-| Year-3 GWP target | USD 32 m | USD 45 m |
-| Composite cedent tier (typical book) | D (power-heavy) / B (diversified) | A (services-led) / B (mixed) |
-| Stress-test loss-ratio sensitivity (Hot House vs Net Zero) | +13 pp | +8 pp |
-| Strategic priority | Greenfield expansion + facultative entry | Treaty deepening + ESG-linked discounts |
-
-The pair is the cleanest natural experiment in SEA. The client gets **two different treatments from the same product family** — and both are quantified in the headline USD 135 m loss-ratio swing.
-
----
-
-*See also: `01_report.md` §3.4 (sectoral STIRPAT), §5 (PH vs VN), §7 (recommendations). All figures cross-checked against `exhibits/results/key_numbers.json` and `section3_supplementary.json`.*
+*Cross-references: `01_report.md` §3.4 (sectoral residuals), §5 (PH vs VN), §6 (loss ratio), §7 (recommendations); `05_cedent_screening_framework.md` (tier logic); `exhibits/results/key_numbers.json` (`stress_test_2030_aggregate`); `app/src/data/keyNumbers.ts` (`EMDAT_VN_PH`, `NDGAIN_2023`, `STRESS_2030`, `HEADLINE`); `app/src/data/cedent.ts` (`COUNTRY_TIER`, `SECTOR_RESIDUAL_PCT`, `LOADING`).*

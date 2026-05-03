@@ -14,27 +14,33 @@ export const MAPE = {
   XGBoost: 2.18,
 };
 
-// Selected from key_numbers.json (per-country XGBoost forecast vs actual 2024)
+// Per-country XGBoost forecast vs actual 2024 — values mirror m3_per_country in
+// exhibits/results/key_numbers.json (do not hand-edit; re-port if model re-runs).
 export const FORECAST_2024 = [
-  { country: 'Indonesia',  pred: 1310.4, actual: 1323.78, errPct: -1.01 },
-  { country: 'Vietnam',    pred:  581.4, actual:  584.26, errPct: -0.49 },
-  { country: 'Thailand',   pred:  421.8, actual:  422.39, errPct: -0.14 },
-  { country: 'Malaysia',   pred:  335.1, actual:  332.17, errPct:  0.88 },
-  { country: 'Philippines', pred: 269.5, actual:  266.60, errPct:  1.09 },
-  { country: 'Myanmar',    pred:  122.8, actual:  117.79, errPct:  4.25 },
-  { country: 'Singapore',  pred:   75.4, actual:   76.09, errPct: -0.91 },
-  { country: 'Cambodia',   pred:   50.2, actual:   49.83, errPct:  0.74 },
-  { country: 'Lao PDR',    pred:   42.0, actual:   41.55, errPct:  1.08 },
-  { country: 'Brunei Darussalam', pred: 11.7, actual: 11.87, errPct: -1.43 },
+  { country: 'Indonesia',  pred: 1272.16, actual: 1323.78, errPct: -3.90 },
+  { country: 'Vietnam',    pred:  563.36, actual:  584.26, errPct: -3.58 },
+  { country: 'Thailand',   pred:  415.61, actual:  422.39, errPct: -1.60 },
+  { country: 'Malaysia',   pred:  327.90, actual:  332.17, errPct: -1.28 },
+  { country: 'Philippines', pred: 262.40, actual:  266.60, errPct: -1.57 },
+  { country: 'Myanmar',    pred:  117.85, actual:  117.79, errPct:  0.05 },
+  { country: 'Singapore',  pred:   73.27, actual:   76.09, errPct: -3.71 },
+  { country: 'Cambodia',   pred:   50.08, actual:   49.83, errPct:  0.49 },
+  { country: 'Lao PDR',    pred:   42.55, actual:   41.55, errPct:  2.42 },
+  { country: 'Brunei Darussalam', pred: 12.24, actual: 11.87, errPct: 3.19 },
 ];
 
+// XGBoost M3b STRUCTURAL specification (no lag features) — surfaces driver
+// attribution. Per CLAUDE.md "What not to do": do NOT replace with autoregressive
+// (M3a) gains, which would be lag-dominated and obscure the structural story.
+// Source: analysis/python/analysis.ipynb §5b (M3b feature importance, seed 2026).
 export const DRIVERS = [
-  { feature: 'Population (log)',   gain: 0.54, kind: 'scale' },
-  { feature: 'GDP (log)',          gain: 0.31, kind: 'scale' },
-  { feature: 'CO₂ intensity / GDP', gain: 0.06, kind: 'tech' },
-  { feature: 'Industry % GDP',     gain: 0.04, kind: 'tech' },
-  { feature: 'Renewable energy %', gain: 0.03, kind: 'tech' },
-  { feature: 'Forest area %',      gain: 0.02, kind: 'land' },
+  { feature: 'GDP (log)',          gain: 0.50, kind: 'scale' },
+  { feature: 'Population (log)',   gain: 0.40, kind: 'scale' },
+  { feature: 'CO₂ intensity / GDP', gain: 0.03, kind: 'tech' },
+  { feature: 'Industry % GDP',     gain: 0.02, kind: 'tech' },
+  { feature: 'Urban pop %',        gain: 0.01, kind: 'scale' },
+  { feature: 'Renewable energy %', gain: 0.01, kind: 'tech' },
+  { feature: 'Forest area %',      gain: 0.01, kind: 'land' },
 ];
 
 // EM-DAT Country Profiles (HDX snapshot 2026-04-24), 2018–2023, ISO3 = VNM/PHL.
@@ -60,6 +66,26 @@ export const EMDAT_VN_PH = {
     damageUsdBn2024: 4.81,
   },
   insuredShareSigma: 0.12, // Swiss Re sigma 1/2024 SEA benchmark
+};
+
+// Insurance market structure for the VN vs PH comparison.
+// Sources: Swiss Re sigma 1/2024 (penetration, protection gap); Vietnam Briefing
+// 2024-12 (VN non-life +10.2 % YoY); PH Insurance Commission Q3 2024 stats.
+export const MARKET_STRUCTURE = {
+  vietnam:     { penetrationPct: 2.4, protectionGapPct: 92, nonLifeYoYPct: 10.2 },
+  philippines: { penetrationPct: 1.7, protectionGapPct: 85, nonLifeYoYPct: 10.2 },
+};
+
+// Sector-weighted loss-ratio sensitivity for a Power-heavy book in each country
+// (Hot House → Net Zero swing). Derived in deliverables/04_vn_vs_ph §7.
+export const LR_SENSITIVITY_PP = { vietnam: 13.0, philippines: 2.0 };
+
+// 2024 live data point — Hannover Re Annual Report 2024 statement on Yagi.
+export const YAGI_2024 = {
+  economicLossUsdBn: 14.0,   // Munich Re region-wide
+  insuredLossUsdBn:  1.0,    // Munich Re region-wide
+  vnInsuredUsdM:    471,     // VND 11.6 trn local insurer aggregate
+  hannoverNote: 'Hannover Re 2024 AR: "Despite Typhoon Yagi, losses incurred… in Vietnam came in within our expectations."',
 };
 
 // ND-GAIN Country Index 2026 release, 2023 latest values

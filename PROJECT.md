@@ -97,7 +97,7 @@ On a notional USD 1.2 bn SEA portfolio with elasticity 0.7 (Swiss Re sigma 1/202
 | Delayed Transition | 58.3 % | 700 |
 | Current Policies (Hot House) | 62.0 % | 744 |
 
-The 11-percentage-point spread is the headline number for the client conversation. The proposed mitigation strategy — a renewable-energy-linked parametric reinsurance product — recovers approximately 70 % of the swing.
+The 11-percentage-point spread is the headline number for the client conversation. The proposed mitigation strategy — a renewable-energy-linked parametric reinsurance product — recovers **72.6 %** of the swing — Mitigation 2030 expected loss USD 646 m vs Hot House USD 744 m / Net Zero USD 609 m, so (744 − 646) / (744 − 609) = 72.6 %.
 
 ## Strategic Recommendations
 
@@ -124,6 +124,11 @@ The analysis supports four concrete actions for the client:
 │   ├── 05_cedent_screening_framework.md   ← productised tool for the client
 │   ├── 06_policy_crosswalk.md             ← BNM CRST / IFRS S2 / NGFS / Paris
 │   ├── 07_qa_briefing.md                  ← 15 anticipated judge questions
+│   ├── 08_cedent_visit_scorecard.md       ← printable one-page cedent scorecard
+│   ├── 09_hannover_re_executive_memo.md   ← memo from team to APAC CRO
+│   ├── 10_vn_cedent_targets.md            ← public-domain VN cedent contact list
+│   ├── 11_indonesia_counterfactual.md     ← framework applied to IDN (generalisability)
+│   ├── 12_stress_refresh_playbook.md      ← quarterly board-pack refresh process
 │   └── ai_usage.md                        ← required AI disclosure
 │
 ├── analysis/
@@ -134,12 +139,26 @@ The analysis supports four concrete actions for the client:
 ├── data/
 │   ├── README.md
 │   ├── sea_panel_clean.csv                ← 10 SEA economies × 35 years × 16 indicators
-│   └── global_panel_clean.csv             ← global panel for XGBoost training
+│   ├── global_panel_clean.csv             ← global panel for XGBoost training
+│   └── external/                          ← EM-DAT (HDX) + ND-GAIN (Notre Dame)
+│       ├── README.md                       provenance, licences, citations
+│       ├── fetch_external.sh               pinned download URLs
+│       ├── build_external_panel.py         SEA filter + country-year aggregation
+│       └── external_features_sea.csv       merged disaster + adaptive-capacity panel
 │
 ├── exhibits/
 │   ├── figures/                           ← fig1–fig13 (publication-quality PNG)
 │   ├── results/                           ← JSON outputs (key_numbers + supporting)
 │   └── MASA_Hackathon_Summary.pdf
+│
+├── app/                                   ← Mobile-first PWA viewer (Vite + React 19)
+│   ├── public/                             icons + manifest assets
+│   ├── src/
+│   │   ├── data/                           keyNumbers.ts + cedent.ts (port of JSON)
+│   │   ├── screens/                        Story · Model · HotSpots · Stress · Cedent · Actions
+│   │   └── components/                     Layout · BottomNav · Card
+│   ├── vite.config.ts                      vite-plugin-pwa + Workbox
+│   └── README.md                           install + Add-to-Home-Screen guide
 │
 └── docs/
     ├── brief/                             ← organiser problem statement & rules
@@ -147,7 +166,8 @@ The analysis supports four concrete actions for the client:
     │   ├── 02_problem_statement.md
     │   ├── 03_rules_and_regulations.md
     │   └── 04_judging_and_submission.md
-    └── code_documentation.md              ← module-by-module Python codebase walkthrough
+    ├── code_documentation.md              ← module-by-module Python codebase walkthrough
+    └── app_prd.md                         ← R-Ignite PWA product requirements
 ```
 
 The raw WDI download (`WB_WDI_WIDEF.csv`, ~243 MB) is **not committed**; download it from <https://data360.worldbank.org/en/dataset/WB_WDI> and place it in `data/` to re-run the cleaning step. See `data/README.md`.
@@ -176,6 +196,10 @@ Five elements separate this work from a generic regression-and-recommendations s
 **Two-way fixed-effects robustness.** Country FE plus year FE plus cluster-robust standard errors is the most demanding specification a panel of this size supports. Only three drivers survive — and we say so explicitly. This is the methodological rigour that Hannover Re actuaries will recognise.
 
 **Interactive dashboard with explicit policy linkage.** The R Shiny app has six tabs including a dedicated Indicator Diagnostic panel (interactive partial-correlation toggling, residual ranking, sectoral heatmap) and a Policy Linkage tab citing Paris Agreement, NGFS, BNM CRST, IFRS S2, TCFD, UNFCCC NDCs, and the ASEAN Strategy for Carbon Neutrality. The bonus criterion (10 %) explicitly rewards this combination.
+
+**Mobile PWA (`app/`) for the live demo.** A Vite + React installable Progressive Web App walks a non-technical viewer through the same 5-screen story (Story → Model → Hot Spots → Stress → Cedent → Actions) on a phone. The Stress and Cedent screens recompute live, and the Cedent screen ports the same 5-tier composite logic used in the Shiny *Reinsurance Impact* tab. Numerical anchors mirror `exhibits/results/key_numbers.json`. Detailed product requirements live in `docs/app_prd.md`.
+
+**External data integration (`data/external/`).** Two open datasets enrich the WDI core: **EM-DAT Country Profiles** (CRED/UCLouvain via HDX) for Vietnam vs Philippines disaster claims (2018–2023, 2024-CPI USD damages), and **ND-GAIN 2026 Country Index** (Notre Dame) for the adaptive-capacity tier in the cedent screening framework. `data/external/build_external_panel.py` produces `external_features_sea.csv`, joined into both R and Python pipelines and quoted in §2.3 of the report.
 
 ## Limitations & Honest Caveats
 

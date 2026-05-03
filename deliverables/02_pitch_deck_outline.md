@@ -11,9 +11,9 @@
 ### Slide 2 — One-Slide Executive Summary (judges' favourite)
 - 4 bullet points, each with a number:
   1. Vietnam overtook Thailand to become SEA's #2 emitter (584 Mt CO₂e, 2024)
-  2. Our XGBoost forecast achieves [X.X]% MAPE on a 2024 hold-out
-  3. A Hot House World pathway costs the client +4–8 pp loss ratio by 2030
-  4. We recommend three actions worth ~USD 280 m premium opportunity
+  2. Our XGBoost forecast achieves **2.18 %** MAPE on a 2024 hold-out
+  3. A Hot House World pathway costs the client **+11 pp** loss ratio by 2030 (USD 135 m on USD 1.2 bn GWP)
+  4. We recommend four actions worth ~USD 280 m premium TAM by 2028
 
 ### Slide 3 — The Brief
 - "You are an actuarial consultant to a multinational reinsurer..."
@@ -33,7 +33,7 @@
 
 ### Slide 6 — Drivers: GDP & Population Dominate
 - Correlation heatmap (small, top-right)
-- Two lead numbers: **r = 0.93** (GDP), **r = 0.91** (population)
+- Two lead numbers: **r = +0.77** (GDP), **r = +0.76** (population) — pairwise on SEA panel 2000–2023 (per report §3.1)
 - One sentence: "Decoupling has not yet arrived in SEA — scale effect dominates."
 
 ### Slide 7 — Vietnam ≠ Philippines
@@ -47,7 +47,7 @@
 
 ### Slide 9 — What Drives Emissions: Population × GDP
 - Two-panel: structural feature importance (left) + Vietnam force plot (right)
-- One callout: *"Population (54%) + GDP (31%) explain 85% of structural variation — STIRPAT in action"*
+- One callout: *"GDP (50%) + Population (40%) explain 91% of structural variation — STIRPAT in action"*
 - Footnote: *"Forecast model uses lagged emissions; structural model isolates drivers — both reported"*
 - This is the slide that separates us from teams that just show R²
 

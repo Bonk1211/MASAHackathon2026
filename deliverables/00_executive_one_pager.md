@@ -16,7 +16,7 @@
 |---|---|
 | **Data** | World Bank WDI Wide format · 16 indicators × 10 SEA economies × 1990–2024 · 2024 reserved as out-of-sample hold-out |
 | **Forecast** | Three-model benchmark (log-linear / ARIMA / XGBoost panel). Selected **XGBoost autoregressive — 2.18 % MAPE on 2024 hold-out** (vs ARIMA 2.67 %, log-linear 9.23 %) |
-| **Drivers** | Two-XGBoost specification — autoregressive for forecast, structural for attribution. Population (gain 0.54) and GDP (0.31) explain ≈85 %, validating STIRPAT. Two indicators flip sign once scale is controlled (forest area, industry share) — partial-correlation diagnostic in §3.2 of the report |
+| **Drivers** | Two-XGBoost specification — autoregressive (M3a) for forecast, structural (M3b) for attribution. **GDP (gain 0.50) and population (0.40) explain ≈91 %**, validating STIRPAT. Two indicators flip sign once scale is controlled (forest area, industry share) — partial-correlation diagnostic in §3.2 of the report |
 | **Robustness** | Two-way fixed-effects panel regression with country-cluster-robust SE. Three drivers survive: **log GDP, CO₂ intensity of GDP, urban population share** |
 | **Sectoral** | STIRPAT residuals re-run per sector — Vietnam +24 % aggregate is **+280 % Power Industry, +276 % Industrial Combustion** |
 | **Stress test** | NGFS Phase V scenarios (Net Zero / Delayed / Hot House) + a client-specific Mitigation pathway, calibrated against BNM CRST 2024 |
