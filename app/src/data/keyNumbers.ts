@@ -159,33 +159,65 @@ export const NDGAIN_2023 = [
   { country: 'Myanmar',           iso3: 'MMR', gain: 36.9, vuln: 0.514, ready: 0.252 },
 ];
 
-export const RECOMMENDATIONS = [
+export type Recommendation = {
+  id: string;
+  ticker: string;
+  title: string;
+  detail: string;
+  target: string;
+  owner: string;
+  milestone: string;
+  policyId: string;
+  kpi: string;
+};
+
+export const RECOMMENDATIONS: Recommendation[] = [
   {
     id: 'parametric',
+    ticker: 'PT',
     title: 'SEA Parametric Typhoon Product',
-    detail: 'Trigger: Saffir-Simpson Cat-3+ landfall in PH/VN/S-China coast. Target: top-5 primary insurers in PH and VN.',
+    detail:
+      'Trigger: Saffir-Simpson Cat-3+ landfall in PH / VN / S-China coast. Target: top-5 primary insurers in PH and VN.',
     target: 'TAM ≈ USD 280 m premium by 2028',
-    icon: '🌀',
+    owner: 'Hannover Re APAC P&C · Product',
+    milestone: 'Q3 2027 — 1st binding',
+    policyId: 'sigma-1-2024',
+    kpi: 'Bound GWP USD m',
   },
   {
     id: 'esg-screen',
+    ticker: 'ES',
     title: 'ESG-Linked Underwriting Screen',
-    detail: 'Cedents with credible NDC-aligned transition plans receive 5–10 % premium discount. Aligned with Paris Article 2.1(c).',
+    detail:
+      'Cedents with credible NDC-aligned transition plans receive 5–10 % premium discount. Aligned with Paris Article 2.1(c).',
     target: '+2 pp loss-ratio improvement at full adoption',
-    icon: '🎯',
+    owner: 'Hannover Re APAC · Underwriting',
+    milestone: '2026 renewal cycle',
+    policyId: 'paris-2-1c',
+    kpi: 'LR improvement (pp)',
   },
   {
     id: 'cat-bond',
-    title: 'Cat Bond Issuance — 2027 Window',
-    detail: 'USD 250 m SEA multi-peril bond, timed to NGFS Disorderly Transition spread-widening window. Solvency II Art. 309 capital relief.',
+    ticker: 'CB',
+    title: 'Cat Bond — 2027 Window',
+    detail:
+      'USD 250 m SEA multi-peril bond, timed to NGFS Disorderly Transition spread-widening window. Solvency II Art. 309 capital relief.',
     target: 'Lock spreads 12–18 months pre-repricing',
-    icon: '📈',
+    owner: 'Hannover Re ILS · Capital Markets',
+    milestone: 'Issue Q2 2027',
+    policyId: 'ngfs-phaseV',
+    kpi: 'Spread bps vs benchmark',
   },
   {
     id: 'capital-buffer',
-    title: 'Capital Buffer +8 %',
-    detail: 'Hold an additional 8 % regional risk-capital buffer under Hot House scenario. Per BNM CRST 2024 §6.3.',
+    ticker: 'CL',
+    title: 'Capital Loading +8 %',
+    detail:
+      'Hold an additional 8 % regional risk-capital buffer under Hot House scenario. Per BNM CRST 2024 §6.3.',
     target: 'Regulator-aligned',
-    icon: '🛡️',
+    owner: 'Hannover Re APAC · Risk',
+    milestone: 'Annual ICAAP cycle',
+    policyId: 'bnm-crst-2024',
+    kpi: 'Buffer held vs requirement',
   },
 ];

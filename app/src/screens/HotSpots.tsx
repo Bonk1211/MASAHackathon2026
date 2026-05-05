@@ -2,7 +2,7 @@ import { useState } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, ReferenceLine,
 } from 'recharts';
-import { Card } from '../components/Card';
+import { Card, Eyebrow, Hairline } from '../components/Card';
 import {
   EMDAT_VN_PH, NDGAIN_2023, MARKET_STRUCTURE, LR_SENSITIVITY_PP, YAGI_2024,
 } from '../data/keyNumbers';
@@ -11,7 +11,7 @@ import { COUNTRY_TIER, SECTOR_RESIDUAL_PCT } from '../data/cedent';
 type Mode = 'compare' | 'single';
 type Side = 'vietnam' | 'philippines';
 
-const VN_COLOUR = '#C0392B';
+const VN_COLOUR = '#8B2E1F';
 const PH_COLOUR = '#0E7C86';
 
 const SECTORS = ['Power Industry', 'Industrial Combustion', 'Transport', 'Agriculture'] as const;
@@ -27,29 +27,33 @@ export function HotSpots() {
   const [side, setSide] = useState<Side>('vietnam');
 
   return (
-    <div className="space-y-3">
-      <Card tone="ink">
-        <p className="text-[11px] uppercase tracking-widest text-paper/60">Question 3 — natural experiment</p>
-        <h1 className="mt-1 text-lg font-bold leading-tight">Vietnam vs Philippines — same typhoon belt, different stories.</h1>
-        <p className="mt-2 text-sm opacity-90">
+    <div className="space-y-5">
+      <section className="border border-ink bg-ink px-5 py-6 text-paper">
+        <Eyebrow tone="paper">§5 · natural experiment</Eyebrow>
+        <h1 className="display mt-2 text-[34px] leading-[0.95]">
+          Vietnam vs Philippines —
+          <span className="italic"> same belt, different stories.</span>
+        </h1>
+        <Hairline className="mt-4 border-paper/20" strong />
+        <p className="mt-3 font-serif italic text-[14px] leading-relaxed text-paper/85">
           Same hazard, opposite transition profile. PH carries 2.1× the cumulative damage; VN carries the steeper loss-ratio swing per dollar of Power-heavy GWP.
         </p>
-        <div className="mt-3 inline-flex rounded-full bg-paper/10 p-0.5">
+        <div className="mt-4 inline-flex border border-paper/30">
           {(['compare', 'single'] as Mode[]).map((m) => (
             <button
               key={m}
               onClick={() => setMode(m)}
               aria-pressed={mode === m}
               className={[
-                'min-h-[36px] rounded-full px-4 py-2 text-[11px] font-semibold capitalize transition',
-                mode === m ? 'bg-paper text-ink' : 'text-paper/80',
+                'min-h-[36px] px-4 text-[10px] font-semibold uppercase tracking-eyebrow transition',
+                mode === m ? 'bg-paper text-ink' : 'bg-transparent text-paper/80',
               ].join(' ')}
             >
               {m === 'compare' ? 'Compare' : 'Single country'}
             </button>
           ))}
         </div>
-      </Card>
+      </section>
 
       {mode === 'compare' ? <CompareView /> : <SingleView side={side} setSide={setSide} />}
     </div>
@@ -236,22 +240,20 @@ function SingleView({ side, setSide }: { side: Side; setSide: (s: Side) => void 
 
   return (
     <>
-      <div className="rounded-full bg-white p-1 shadow-card">
-        <div className="grid grid-cols-2 gap-1">
-          {(['vietnam', 'philippines'] as Side[]).map((s) => (
-            <button
-              key={s}
-              onClick={() => setSide(s)}
-              aria-pressed={side === s}
-              className={[
-                'min-h-[44px] rounded-full py-2 text-sm font-semibold capitalize transition',
-                side === s ? 'bg-ink text-paper' : 'text-muted',
-              ].join(' ')}
-            >
-              {s === 'vietnam' ? 'Vietnam' : 'Philippines'}
-            </button>
-          ))}
-        </div>
+      <div className="grid grid-cols-2 border border-rule">
+        {(['vietnam', 'philippines'] as Side[]).map((s) => (
+          <button
+            key={s}
+            onClick={() => setSide(s)}
+            aria-pressed={side === s}
+            className={[
+              'min-h-[44px] py-2 text-[12px] font-semibold uppercase tracking-eyebrow transition',
+              side === s ? 'bg-ink text-paper' : 'bg-paper text-muted',
+            ].join(' ')}
+          >
+            {s === 'vietnam' ? 'Vietnam' : 'Philippines'}
+          </button>
+        ))}
       </div>
 
       <Card title={`${side === 'vietnam' ? 'Vietnam' : 'Philippines'} — EM-DAT 2018–2023`} subtitle="CRED/UCLouvain via OCHA HDX, snapshot 2026-04-24. Damage in 2024-CPI USD.">
