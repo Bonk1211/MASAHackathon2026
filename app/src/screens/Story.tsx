@@ -1,11 +1,38 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, Eyebrow, Hairline, StatBig } from '../components/Card';
-import { QRInstall } from '../components/QRInstall';
 import { EvidenceModal } from '../components/EvidenceModal';
 import { Ticker } from '../components/Ticker';
 import { HEADLINE, PORTFOLIO } from '../data/keyNumbers';
 import { EVIDENCE_BY_ID } from '../data/evidence';
+
+function ShareLink() {
+  const [copied, setCopied] = useState(false);
+  const url = typeof window !== 'undefined' ? window.location.href : '';
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch (_) { /* ignore */ }
+  };
+  return (
+    <section className="grid grid-cols-[1fr_auto] items-center gap-4 border border-rule bg-paper px-5 py-4">
+      <div>
+        <Eyebrow>Share this dashboard</Eyebrow>
+        <p className="mt-1 font-mono text-[11px] tab-num text-ink truncate" title={url}>
+          {url || '—'}
+        </p>
+      </div>
+      <button
+        onClick={copy}
+        className="border border-ink bg-paper px-4 py-2 font-mono text-[11px] uppercase tracking-eyebrow text-ink transition hover:bg-ink hover:text-paper"
+      >
+        {copied ? 'Copied ✓' : 'Copy link'}
+      </button>
+    </section>
+  );
+}
 
 export function Story() {
   const [evidenceId, setEvidenceId] = useState<string | null>(null);
@@ -62,9 +89,9 @@ export function Story() {
         </div>
       </section>
 
-      {/* QR install + portfolio sheet — 2-col on lg */}
+      {/* Share link + portfolio sheet — 2-col on lg */}
       <section className="grid gap-6 lg:grid-cols-2 lg:gap-6">
-        <QRInstall />
+        <ShareLink />
 
         <div className="border border-rule bg-sand px-5 py-5 lg:px-7 lg:py-6">
           <Eyebrow>Portfolio assumptions · base case</Eyebrow>
@@ -97,10 +124,10 @@ export function Story() {
         </div>
       </section>
 
-      {/* Editorial table of contents — 3-col movements on lg */}
+      {/* Editorial table of contents — 5-tab demo flow */}
       <section className="border border-rule bg-paper px-5 py-5 lg:px-10 lg:py-8">
         <div className="flex items-baseline justify-between">
-          <Eyebrow>The case file · 11 sections</Eyebrow>
+          <Eyebrow>The case file · 5 sections</Eyebrow>
           <span className="hidden lg:inline font-mono text-[10px] uppercase tracking-eyebrow text-muted">
             Three movements
           </span>
@@ -112,14 +139,10 @@ export function Story() {
         <div className="mt-6 grid gap-6 lg:mt-8 lg:grid-cols-3 lg:gap-8">
           <Movement
             roman="I"
-            title="Evidence"
-            blurb="Where the numbers come from."
+            title="Method"
+            blurb="See the model run, end to end."
             items={[
-              { code: '02', name: 'Model',      to: '/model',      tag: 'Forecast leaderboard' },
-              { code: '03', name: 'Diagnostic', to: '/diagnostic', tag: 'Three sign-flips' },
-              { code: '04', name: 'Hot Spots',  to: '/hotspots',   tag: 'VN vs PH natural experiment' },
-              { code: '05', name: 'Sectoral',   to: '/sectoral',   tag: '10 × 8 residual heatmap' },
-              { code: '06', name: 'Compare',    to: '/compare',    tag: 'Two-country side-by-side' },
+              { code: '02', name: 'Pipeline', to: '/pipeline', tag: 'Live model demo · 5 stages' },
             ]}
           />
           <Movement
@@ -127,8 +150,8 @@ export function Story() {
             title="Pricing"
             blurb="Where the risk meets the book."
             items={[
-              { code: '07', name: 'Stress', to: '/stress', tag: 'NGFS × elasticity slider' },
-              { code: '08', name: 'Cedent', to: '/cedent', tag: 'Composite tier · live' },
+              { code: '03', name: 'Stress', to: '/stress', tag: 'NGFS × elasticity slider' },
+              { code: '04', name: 'Cedent', to: '/cedent', tag: 'Composite tier · live' },
             ]}
           />
           <Movement
@@ -136,22 +159,54 @@ export function Story() {
             title="Delivery"
             blurb="What lands on the CRO desk."
             items={[
-              { code: '09', name: 'Actions',  to: '/actions',  tag: 'Four recommended actions' },
-              { code: '10', name: 'Brief',    to: '/brief',    tag: 'Executive memo export' },
-              { code: '11', name: 'Evidence', to: '/evidence', tag: 'Trace-back ledger' },
+              { code: '05', name: 'Brief', to: '/brief', tag: 'Executive memo export' },
             ]}
           />
         </div>
+
+        {/* Appendix — absorbed routes for direct deep-link */}
+        <div className="mt-8 border-t border-rule pt-5">
+          <div className="flex items-baseline justify-between">
+            <p className="font-mono text-[10px] uppercase tracking-eyebrow text-muted">
+              Appendix · drill-downs reachable via Pipeline
+            </p>
+            <span className="font-mono text-[10px] tab-num text-muted">07 entries</span>
+          </div>
+          <ul className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 lg:grid-cols-4">
+            {[
+              { code: 'a', name: 'Model',      to: '/model' },
+              { code: 'b', name: 'Diagnostic', to: '/diagnostic' },
+              { code: 'c', name: 'Hot Spots',  to: '/hotspots' },
+              { code: 'd', name: 'Sectoral',   to: '/sectoral' },
+              { code: 'e', name: 'Compare',    to: '/compare' },
+              { code: 'f', name: 'Actions',    to: '/actions' },
+              { code: 'g', name: 'Evidence',   to: '/evidence' },
+            ].map((it) => (
+              <li key={it.to}>
+                <Link
+                  to={it.to}
+                  className="flex items-baseline justify-between py-1.5 text-[12px] text-muted hover:text-ink transition"
+                >
+                  <span className="flex items-baseline gap-2">
+                    <span className="font-mono text-[9px] text-muted/60">{it.code}</span>
+                    <span>{it.name}</span>
+                  </span>
+                  <span aria-hidden="true" className="font-mono text-[10px]">→</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
       </section>
 
-      {/* Persistent CTA */}
+      {/* Persistent CTA — points to live Pipeline */}
       <Link
-        to="/stress"
+        to="/pipeline"
         className="group flex items-center justify-between border border-ink bg-ink px-5 py-4 text-paper transition active:bg-ink/95 lg:px-8 lg:py-5"
       >
         <span className="flex items-center gap-3 lg:gap-5">
-          <Ticker code="07" tone="paper" size="md" />
-          <span className="text-[15px] font-medium lg:text-[18px]">Open the live stress test</span>
+          <Ticker code="02" tone="paper" size="md" />
+          <span className="text-[15px] font-medium lg:text-[18px]">See the model run live</span>
         </span>
         <span aria-hidden="true" className="font-mono text-[14px] lg:text-[16px]">→</span>
       </Link>

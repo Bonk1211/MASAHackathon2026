@@ -1,7 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Card, Eyebrow, Hairline } from '../components/Card';
+import { Ticker } from '../components/Ticker';
 import { HEADLINE, PORTFOLIO, RECOMMENDATIONS } from '../data/keyNumbers';
 import { POLICY_BY_ID } from '../data/policy';
+
+const TICKER_TONE: Record<string, 'sea' | 'sage' | 'amber' | 'rust'> = {
+  PT: 'sea', ES: 'sage', CB: 'amber', CL: 'rust',
+};
 
 const STORAGE_KEY = 'r-ignite.savedCedents.v1';
 
@@ -80,6 +85,42 @@ export function Brief() {
           ))}
         </ul>
       </Card>
+
+      {/* Recommended actions — folded from Actions screen */}
+      <section className="border border-rule bg-paper px-5 py-5 lg:px-7 lg:py-6">
+        <div className="flex items-baseline justify-between">
+          <Eyebrow>Recommended actions · {RECOMMENDATIONS.length}</Eyebrow>
+          <span className="font-mono text-[10px] uppercase tracking-eyebrow text-muted">
+            Detail rows
+          </span>
+        </div>
+        <Hairline className="mt-3" />
+        <ul className="mt-3 divide-y divide-rule">
+          {RECOMMENDATIONS.map((r) => {
+            const policy = POLICY_BY_ID[r.policyId];
+            return (
+              <li key={r.id} className="grid grid-cols-[auto_1fr] gap-4 py-4">
+                <Ticker code={r.ticker} tone={TICKER_TONE[r.ticker] ?? 'ink'} size="lg" />
+                <div>
+                  <h3 className="text-[14px] font-semibold leading-tight text-ink">{r.title}</h3>
+                  <p className="mt-1 text-[12px] leading-snug text-muted">{r.detail}</p>
+                  <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
+                    <Row label="KPI" value={r.kpi} />
+                    <Row label="Target" value={r.target} />
+                    <Row label="Owner" value={r.owner} />
+                    <Row label="Milestone" value={r.milestone} />
+                  </dl>
+                  {policy && (
+                    <p className="mt-2 border-t border-rule pt-2 font-mono text-[10px] uppercase tracking-eyebrow text-sea">
+                      Anchor · {policy.short} — {policy.full}
+                    </p>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
 
       {/* Memo preview — print-clean */}
       <article className="border border-rule bg-paper px-6 py-7 print-only:bg-white">
@@ -174,6 +215,15 @@ function CTA({ label, sub, onClick }: { label: string; sub: string; onClick: () 
       <p className="font-mono text-[10px] uppercase tracking-eyebrow text-muted">{sub}</p>
       <p className="display mt-1 text-[20px] leading-none italic">{label}</p>
     </button>
+  );
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="grid grid-cols-[60px_1fr] gap-2">
+      <dt className="text-muted">{label}</dt>
+      <dd className="text-ink">{value}</dd>
+    </div>
   );
 }
 

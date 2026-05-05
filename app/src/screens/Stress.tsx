@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { Card, Eyebrow, Hairline, StatBig } from '../components/Card';
 import { HEADLINE, PORTFOLIO, STRESS_2030 } from '../data/keyNumbers';
@@ -44,6 +45,22 @@ export function Stress() {
 
   return (
     <div className="space-y-5">
+      {/* Provenance banner — shows this screen reads pipeline outputs */}
+      <section className="flex items-center justify-between border border-rule bg-paper/80 px-4 py-2.5">
+        <div>
+          <Eyebrow>Source · Pipeline /predict (cached)</Eyebrow>
+          <p className="mt-0.5 font-mono text-[11px] tab-num text-ink/70">
+            loss ratio = base × (1 + ε × Δemissions) · ε live below
+          </p>
+        </div>
+        <Link
+          to="/pipeline"
+          className="font-mono text-[10px] uppercase tracking-eyebrow text-sea hover:underline"
+        >
+          See pipeline →
+        </Link>
+      </section>
+
       <section className="border border-ink bg-ink px-5 py-6 text-paper lg:px-10 lg:py-10">
         <Eyebrow tone="paper">The wow moment · live recompute</Eyebrow>
         <h1 className="display mt-2 text-[36px] leading-[0.95] lg:text-[64px] lg:mt-4">

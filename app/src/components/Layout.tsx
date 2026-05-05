@@ -1,44 +1,51 @@
+import { useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { BottomNav } from './BottomNav';
 import { Sidebar } from './Sidebar';
 
 const META: Record<string, { code: string; title: string; eyebrow: string }> = {
-  '/':           { code: '01', title: 'Story',          eyebrow: 'Frame' },
-  '/model':      { code: '02', title: 'Model',          eyebrow: 'Evidence' },
-  '/diagnostic': { code: '03', title: 'Diagnostic',     eyebrow: 'Evidence' },
-  '/hotspots':   { code: '04', title: 'Hot Spots',      eyebrow: 'Evidence' },
-  '/sectoral':   { code: '05', title: 'Sectoral',       eyebrow: 'Evidence' },
-  '/compare':    { code: '06', title: 'Compare',        eyebrow: 'Evidence' },
-  '/stress':     { code: '07', title: 'Stress',         eyebrow: 'Pricing' },
-  '/cedent':     { code: '08', title: 'Cedent',         eyebrow: 'Pricing' },
-  '/actions':    { code: '09', title: 'Actions',        eyebrow: 'Delivery' },
-  '/brief':      { code: '10', title: 'Brief',          eyebrow: 'Delivery' },
-  '/evidence':   { code: '11', title: 'Evidence',       eyebrow: 'Delivery' },
+  '/':           { code: '01', title: 'Story',      eyebrow: 'Frame' },
+  '/pipeline':   { code: '02', title: 'Pipeline',   eyebrow: 'Method' },
+  '/stress':     { code: '03', title: 'Stress',     eyebrow: 'Pricing' },
+  '/cedent':     { code: '04', title: 'Cedent',     eyebrow: 'Pricing' },
+  '/brief':      { code: '05', title: 'Brief',      eyebrow: 'Delivery' },
+  '/model':      { code: 'a', title: 'Model',      eyebrow: 'Appendix' },
+  '/diagnostic': { code: 'b', title: 'Diagnostic', eyebrow: 'Appendix' },
+  '/hotspots':   { code: 'c', title: 'Hot Spots',  eyebrow: 'Appendix' },
+  '/sectoral':   { code: 'd', title: 'Sectoral',   eyebrow: 'Appendix' },
+  '/compare':    { code: 'e', title: 'Compare',    eyebrow: 'Appendix' },
+  '/actions':    { code: 'f', title: 'Actions',    eyebrow: 'Appendix' },
+  '/evidence':   { code: 'g', title: 'Evidence',   eyebrow: 'Appendix' },
 };
 
 export function Layout() {
   const loc = useLocation();
   const nav = useNavigate();
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const meta = META[loc.pathname] ?? { code: '—', title: 'R-Ignite', eyebrow: '' };
   const showBack = loc.pathname !== '/';
 
   return (
     <div className="mx-auto min-h-full max-w-shell lg:grid lg:grid-cols-shell">
-      <Sidebar />
+      <Sidebar isDrawerOpen={drawerOpen} onCloseDrawer={() => setDrawerOpen(false)} />
 
       <div className="flex min-h-screen flex-col">
-        {/* Mobile / desktop header band */}
-        <header
-          className="sticky top-0 z-20 border-b border-rule bg-paper/92 backdrop-blur"
-          style={{ paddingTop: 'env(safe-area-inset-top, 0)' }}
-        >
-          {/* Mobile-only masthead */}
-          <div className="flex items-center justify-between px-5 pt-3 lg:hidden">
-            <Wordmark />
+        <header className="sticky top-0 z-20 border-b border-rule bg-paper/92 backdrop-blur">
+          {/* Compact top bar — hamburger + wordmark on mobile, hidden on lg (sidebar handles masthead) */}
+          <div className="flex items-center justify-between px-5 py-3 lg:hidden">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setDrawerOpen(true)}
+                aria-label="Open navigation"
+                className="grid min-h-[36px] min-w-[36px] place-items-center border border-rule text-ink hover:bg-ink/5"
+              >
+                <span aria-hidden="true" className="font-mono text-[14px] leading-none">≡</span>
+              </button>
+              <Wordmark />
+            </div>
             <div className="flex items-center gap-2 text-[9px] uppercase tracking-eyebrow text-muted">
               <span>Hannover Re</span>
               <span aria-hidden="true" className="h-[1px] w-3 bg-rule-strong" />
-              <span>Strategic Partner</span>
+              <span>Strategic</span>
             </div>
           </div>
 
@@ -49,7 +56,7 @@ export function Layout() {
                 <button
                   onClick={() => nav(-1)}
                   aria-label="Back"
-                  className="grid min-h-[36px] min-w-[36px] place-items-center border border-rule text-ink hover:bg-ink/5 lg:hidden"
+                  className="grid min-h-[36px] min-w-[36px] place-items-center border border-rule text-ink hover:bg-ink/5"
                 >
                   <span aria-hidden="true">←</span>
                 </button>
@@ -67,18 +74,18 @@ export function Layout() {
           </div>
         </header>
 
-        <main
-          className="flex-1 px-5 pt-5 pb-32 lg:px-10 lg:pt-8 lg:pb-12"
-          style={{ paddingBottom: 'calc(7rem + env(safe-area-inset-bottom, 0))' }}
-        >
+        <main className="flex-1 px-5 pb-12 pt-5 lg:px-10 lg:pt-8">
           <div className="mx-auto max-w-canvas">
             <Outlet />
           </div>
         </main>
 
-        <div className="lg:hidden">
-          <BottomNav />
-        </div>
+        <footer className="border-t border-rule px-5 py-4 lg:px-10">
+          <div className="mx-auto flex max-w-canvas items-baseline justify-between font-mono text-[10px] uppercase tracking-eyebrow text-muted">
+            <span>R·Ignite · MASA Hackathon 2026</span>
+            <span className="tab-num">Pipeline v1.0 · Seed 2026</span>
+          </div>
+        </footer>
       </div>
     </div>
   );

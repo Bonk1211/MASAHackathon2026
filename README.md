@@ -127,6 +127,138 @@ For the full module-by-module Python codebase walkthrough, see `docs/code_docume
 
 ---
 
+## Live Demo — Pipeline App (Frontend + Backend)
+
+> **Quick path**: `make demo` from the repo root installs both stacks, regenerates the model artefacts, and starts the API + web in parallel. `Ctrl-C` stops both. Run `make` with no args for the full target list.
+
+R-Ignite ships with two runnable services for the live judging demo:
+
+- **Backend** (`serve/`) — FastAPI service that loads the trained M3a / M3b XGBoost models exported by the analysis notebook and exposes a `/predict` endpoint returning the full 5-stage pipeline trace.
+- **Frontend** (`app/`) — React + Vite single-page web app. Editorial reinsurance dashboard, 12 routes, calls the backend live.
+
+### One-time prerequisites
+
+> **macOS only — install OpenMP runtime first.** XGBoost on macOS dynamically links `libomp.dylib`, which Apple's system Python and python.org installers do not ship. Anaconda bundles it; everything else needs:
+>
+> ```bash
+> brew install libomp
+> ```
+>
+> Without this, `import xgboost` raises `XGBoostError: libxgboost.dylib could not be loaded` and the API will not start. Linux + Windows users skip this step.
+
+```bash
+# 1. Re-execute the analysis notebook so cell 42 emits the model artefacts.
+#    Skip this if serve/models/{m3a.json,m3b.json,meta.json} already exist.
+jupyter nbconvert --to notebook --execute analysis/python/analysis.ipynb --output /tmp/exec.ipynb
+cp /tmp/exec.ipynb analysis/python/analysis.ipynb
+
+# 2. Backend dependencies (FastAPI · uvicorn · pydantic · xgboost · scikit-learn · numpy)
+cd serve
+pip install -r requirements.txt        # or: uv sync
+cd ..
+
+# 3. Frontend dependencies
+cd app
+npm install
+cp .env.example .env.local             # default points VITE_PIPELINE_API at localhost:8000
+cd ..
+```
+
+### Run both in parallel (two terminals)
+
+**Terminal 1 — backend**
+
+```bash
+# from repo root
+uvicorn serve.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+Verify:
+
+```bash
+curl http://localhost:8000/healthz
+# → {"ok":true,"version":"1.0","seed":2026}
+
+curl -X POST http://localhost:8000/predict \
+  -H 'content-type: application/json' \
+  -d '{"country":"Vietnam","mode":"hindcast"}' | jq '.stage_3_xgb'
+# → pred 560.59 Mt vs actual 584.26 Mt · err -4.05%
+```
+
+Open `http://localhost:8000/` for an editorial landing page listing every endpoint, or `http://localhost:8000/docs` for Swagger UI.
+
+**Terminal 2 — frontend**
+
+```bash
+cd app
+npm run dev
+# → vite dev at http://localhost:5173
+```
+
+Then open **`http://localhost:5173/#/pipeline`** in your browser. Drag any feature slider — you should see real M3a inference at sub-millisecond latency with the 5-stage trace animating live.
+
+### Verify the integration
+
+```bash
+# From repo root, with both servers up:
+curl -s -X POST http://localhost:8000/predict \
+  -H 'content-type: application/json' \
+  -d '{"country":"Vietnam","mode":"forward","scenario":"Net Zero 2050","elasticity":0.7,"gwp_usdm":1200,"base_lr":0.62}' \
+  | jq '.stage_5_loss'
+# → loss USD 609 m, swing −USD 135 m vs Hot House  (matches headline)
+```
+
+### Stop both servers
+
+```bash
+# Ctrl-C in each terminal, or globally:
+pkill -f "uvicorn serve" && pkill -f "vite"
+```
+
+### Optional — share the backend over the internet for the live demo
+
+The frontend is configured via `VITE_PIPELINE_API`. To expose your local backend so a judge's phone can hit it from outside the venue:
+
+```bash
+ngrok http 8000
+# Copy the https://*.ngrok-free.app URL into app/.env.local:
+#   VITE_PIPELINE_API=https://<your-tunnel>.ngrok-free.app
+# Then restart `npm run dev` so Vite picks up the new env var.
+```
+
+The frontend also has an offline fallback — if `VITE_PIPELINE_API` is unset or unreachable, the Pipeline screen renders a synthesised trace from `exhibits/results/key_numbers_python.json` and shows a "Cached mode" banner.
+
+### Production build
+
+```bash
+cd app
+npm run build         # → app/dist/  · ~215 KB gzip
+npm run preview       # serves the build at http://localhost:4173
+```
+
+For deployment, point any static host (Vercel / Netlify / Cloudflare Pages) at `app/dist/` and host the FastAPI service on Render / Fly / equivalent. CORS is wide-open for the demo — tighten before any production use.
+
+### File map for the demo stack
+
+```
+app/                         React + Vite single-page app
+├── src/screens/Pipeline.tsx ← live model demo screen (5 stages + inspect modals)
+├── src/lib/pipeline.ts      ← typed /predict client + offline synthesiser
+├── src/components/          ← Sidebar, Layout, Card, EvidenceModal, …
+├── .env.example             ← VITE_PIPELINE_API documented here
+└── package.json
+
+serve/                       FastAPI backend
+├── main.py                  ← / · /healthz · /meta · POST /predict
+├── pipeline.py              ← model load + 5-stage trace builder
+├── models/                  ← m3a.json · m3b.json · meta.json (from notebook)
+├── pyproject.toml / requirements.txt
+├── Dockerfile               ← optional Render / Fly deploy
+└── README.md                ← backend-only run notes
+```
+
+---
+
 ## Data Provenance
 
 | Source | Used for | Vintage |

@@ -1,6 +1,7 @@
 import { HashRouter, Route, Routes } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { Story } from './screens/Story';
+import { Pipeline } from './screens/Pipeline';
 import { Model } from './screens/Model';
 import { Diagnostic } from './screens/Diagnostic';
 import { HotSpots } from './screens/HotSpots';
@@ -18,6 +19,7 @@ export default function App() {
       <Routes>
         <Route element={<Layout />}>
           <Route index element={<Story />} />
+          <Route path="pipeline" element={<Pipeline />} />
           <Route path="model" element={<Model />} />
           <Route path="diagnostic" element={<Diagnostic />} />
           <Route path="hotspots" element={<HotSpots />} />
