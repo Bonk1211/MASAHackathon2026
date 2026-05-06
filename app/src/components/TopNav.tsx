@@ -61,9 +61,7 @@ export function TopNav() {
     <header className="sticky top-0 z-30 border-b border-rule bg-paper/95 backdrop-blur">
       <div className="mx-auto flex max-w-shell items-center justify-between gap-4 px-5 py-3 lg:px-10 lg:py-4">
         <NavLink to="/" end className="flex shrink-0 items-baseline gap-2">
-          <span className="display text-[22px] leading-none text-ink">R</span>
-          <span aria-hidden="true" className="h-[16px] w-[1px] bg-rule-strong" />
-          <span className="display italic text-[22px] leading-none text-ink">Ignite</span>
+          <span className="display italic text-[22px] leading-none text-ink">PRISM</span>
         </NavLink>
 
         <nav aria-label="Primary" className="hidden flex-1 items-center justify-center gap-1 lg:flex">
