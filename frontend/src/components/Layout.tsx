@@ -49,6 +49,11 @@ export function Layout() {
   const meta = META[loc.pathname] ?? { code: '—', title: 'PRISM', eyebrow: '' };
   const headingRef = useRef<HTMLHeadingElement>(null);
   const isLanding = loc.pathname === '/';
+  // Pipeline-flavour screens need the full viewport — five-stage row + sliders.
+  const isFullBleed =
+    loc.pathname === '/pipeline' ||
+    loc.pathname === '/appendix/pipeline' ||
+    loc.pathname === '/phase4';
 
   useEffect(() => {
     document.title = `${meta.title} — PRISM · SEA Climate Risk`;
@@ -85,8 +90,14 @@ export function Layout() {
         </div>
       )}
 
-      <main className="mx-auto w-full max-w-shell px-5 pb-12 pt-5 lg:px-10 lg:pt-8">
-        <div className="mx-auto max-w-canvas">
+      <main
+        className={
+          isFullBleed
+            ? 'w-full px-5 pb-12 pt-5 lg:px-8 lg:pt-8'
+            : 'mx-auto w-full max-w-shell px-5 pb-12 pt-5 lg:px-10 lg:pt-8'
+        }
+      >
+        <div className={isFullBleed ? '' : 'mx-auto max-w-canvas'}>
           <Outlet />
         </div>
       </main>
