@@ -16,8 +16,10 @@
     "@supabase/supabase-js": "^2.45.4",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
+    "react-markdown": "^10.1.0",
     "react-router-dom": "^7.14.2",
-    "recharts": "^3.8.1"
+    "recharts": "^3.8.1",
+    "remark-gfm": "^4.0.1"
   },
   "overrides": {
     "serialize-javascript": "^7.0.5"

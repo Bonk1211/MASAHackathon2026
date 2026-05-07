@@ -5,34 +5,23 @@ import { useFocusTrap } from '../lib/useFocusTrap';
 
 type Tab = { to: string; code: string; label: string; tag?: string };
 
-// PRIMARY = the 6-phase consulting engagement.
+// PRIMARY = the 6-phase consulting engagement + the executive memo it
+// produces from saved cedent simulations.
 const PRIMARY: Tab[] = [
-  { to: '/',         code: '00', label: 'Home' },
-  { to: '/phase1',   code: '01', label: 'Scoping',    tag: 'Phase 1' },
-  { to: '/phase2',   code: '02', label: 'Taxonomy',   tag: 'Phase 2' },
-  { to: '/phase3',   code: '03', label: 'Indicators', tag: 'Phase 3' },
-  { to: '/phase4',   code: '04', label: 'Pipeline',   tag: 'Phase 4' },
-  { to: '/phase5',   code: '05', label: 'Modeling',   tag: 'Phase 5' },
-  { to: '/phase6',   code: '06', label: 'Strategy',   tag: 'Phase 6' },
+  { to: '/',                code: '00', label: 'Home' },
+  { to: '/phase1',          code: '01', label: 'Scoping',    tag: 'Phase 1' },
+  { to: '/phase2',          code: '02', label: 'Taxonomy',   tag: 'Phase 2' },
+  { to: '/phase3',          code: '03', label: 'Indicators', tag: 'Phase 3' },
+  { to: '/phase4',          code: '04', label: 'Pipeline',   tag: 'Phase 4' },
+  { to: '/phase5',          code: '05', label: 'Modeling',   tag: 'Phase 5' },
+  { to: '/phase6',          code: '06', label: 'Strategy',   tag: 'Phase 6' },
+  { to: '/appendix/report', code: '07', label: 'Report',     tag: 'Memo' },
 ];
 
-// APPENDIX = the 14 legacy chart-driven screens, now demoted under /appendix/*.
-const APPENDIX: Tab[] = [
-  { to: '/appendix/story',      code: 'a1',  label: 'Story',      tag: 'Front page' },
-  { to: '/appendix/pipeline',   code: 'a2',  label: 'Pipeline',   tag: 'Live data' },
-  { to: '/appendix/pricing',    code: 'a3',  label: 'Pricing',    tag: 'Simulator' },
-  { to: '/appendix/report',     code: 'a4',  label: 'Report',     tag: 'Delivery' },
-  { to: '/appendix/stress',     code: 'a5',  label: 'Stress',     tag: 'NGFS standalone' },
-  { to: '/appendix/cedent',     code: 'a6',  label: 'Cedent',     tag: 'Tier standalone' },
-  { to: '/appendix/brief',      code: 'a7',  label: 'Brief',      tag: 'Memo export' },
-  { to: '/appendix/model',      code: 'a8',  label: 'Model',      tag: 'Forecast' },
-  { to: '/appendix/diagnostic', code: 'a9',  label: 'Diagnostic', tag: 'Sign-flips' },
-  { to: '/appendix/hotspots',   code: 'a10', label: 'Hot Spots',  tag: 'VN vs PH' },
-  { to: '/appendix/sectoral',   code: 'a11', label: 'Sectoral',   tag: 'Heatmap' },
-  { to: '/appendix/compare',    code: 'a12', label: 'Compare',    tag: 'Side-by-side' },
-  { to: '/appendix/actions',    code: 'a13', label: 'Actions',    tag: 'Recs' },
-  { to: '/appendix/evidence',   code: 'a14', label: 'Evidence',   tag: 'Trace-back' },
-];
+// APPENDIX hidden from primary nav. Routes still resolve for deep links and
+// for screens embedded inside Phase shells. Surface only via "more" overflow
+// when needed in the future — for now PRIMARY is the entire user journey.
+const APPENDIX: Tab[] = [];
 
 export function TopNav() {
   const [moreOpen, setMoreOpen] = useState(false);

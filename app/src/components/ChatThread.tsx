@@ -5,14 +5,16 @@
 //   2. Sends session_id so the server can stitch turns into one interview.
 //   3. Surfaces full ScopingProfile + per-axis confidence as a sticky rail.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eyebrow, Hairline } from './Card';
 import {
   type ChatTurn,
   type ScopingAxis,
   type ScopingProfile,
+  type SessionSummary,
   SCOPING_AXES,
+  listSessions,
   pinnedAxes,
   useScoping,
 } from '../lib/scoping';
@@ -93,13 +95,81 @@ function formatAxisValue(axis: ScopingAxis, value: unknown): string {
   return String(value);
 }
 
+const HISTORY_OPEN_KEY = 'prism.scoping.history_open.v1';
+
+function getInitialHistoryOpen(): boolean {
+  try {
+    const v = localStorage.getItem(HISTORY_OPEN_KEY);
+    if (v !== null) return v === '1';
+  } catch {
+    /* ignore */
+  }
+  // Default open on desktop, closed on small screens.
+  if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+    return window.matchMedia('(min-width: 1024px)').matches;
+  }
+  return true;
+}
+
+function sessionLabel(s: SessionSummary): string {
+  if (s.client_label) return s.client_label;
+  const lob = s.profile?.line_of_business;
+  if (lob) {
+    const top = (Object.entries(lob) as [string, number][])
+      .filter(([, v]) => Number.isFinite(v) && v > 0)
+      .sort(([, a], [, b]) => b - a)[0];
+    if (top) return `${top[0].replace('_', ' ')} ${Math.round(top[1])}%`;
+  }
+  const geo = s.profile?.geography;
+  if (geo && geo.length > 0) return geo.slice(0, 2).join(', ');
+  return 'Untitled scope';
+}
+
+function relativeTime(iso: string): string {
+  const then = new Date(iso).getTime();
+  const now = Date.now();
+  const min = Math.round((now - then) / 60000);
+  if (min < 1) return 'now';
+  if (min < 60) return `${min}m`;
+  const hr = Math.round(min / 60);
+  if (hr < 24) return `${hr}h`;
+  const d = Math.round(hr / 24);
+  if (d < 30) return `${d}d`;
+  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
 export function ChatThread() {
   const nav = useNavigate();
-  const { profile, transcript, sessionId, setFullProfile, appendTurn, reset } = useScoping();
+  const { profile, transcript, sessionId, setFullProfile, appendTurn, reset, switchSession } =
+    useScoping();
   const [msg, setMsg] = useState('');
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // History sidebar state.
+  const [historyOpen, setHistoryOpen] = useState<boolean>(() => getInitialHistoryOpen());
+  const [sessions, setSessions] = useState<SessionSummary[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  const reloadSessions = useCallback(async () => {
+    setHistoryLoading(true);
+    const rows = await listSessions(50);
+    setSessions(rows);
+    setHistoryLoading(false);
+  }, []);
+
+  useEffect(() => {
+    void reloadSessions();
+  }, [reloadSessions]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(HISTORY_OPEN_KEY, historyOpen ? '1' : '0');
+    } catch {
+      /* ignore */
+    }
+  }, [historyOpen]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -121,6 +191,16 @@ export function ChatThread() {
 
   // Guard against double-fire (chip double-click, React event quirks).
   const inFlight = useRef(false);
+
+  function handleNewChat() {
+    reset();
+    void reloadSessions();
+  }
+
+  async function handleSwitch(id: string) {
+    await switchSession(id);
+    setErr(null);
+  }
 
   async function submit(text: string) {
     if (!text.trim() || loading || inFlight.current) return;
@@ -163,6 +243,8 @@ export function ChatThread() {
         });
       }
       if (data.error) setErr(data.error);
+      // Refresh history list so the current session shows up.
+      void reloadSessions();
     } catch (e) {
       const name = e instanceof Error ? e.name : '';
       const m = e instanceof Error ? e.message : String(e);
@@ -180,16 +262,99 @@ export function ChatThread() {
   }
 
   const isEmpty = transcript.length === 0 && !loading;
+  const sidebarCols = historyOpen ? 'lg:grid-cols-[260px_1fr_320px]' : 'lg:grid-cols-[40px_1fr_320px]';
 
   return (
-    <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-6 lg:items-start">
+    <div className={['lg:grid lg:gap-3 lg:items-start', sidebarCols].join(' ')}>
+      {/* History sidebar */}
+      <aside
+        aria-label="Chat history"
+        className={[
+          'mb-3 flex flex-col border border-rule bg-paper transition-all lg:mb-0 lg:h-[80vh]',
+          historyOpen ? 'lg:overflow-hidden' : 'lg:overflow-hidden',
+        ].join(' ')}
+      >
+        <div className="flex items-center justify-between border-b border-rule px-2 py-2.5">
+          {historyOpen ? (
+            <>
+              <Eyebrow>History</Eyebrow>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={handleNewChat}
+                  title="Start a new scoping session"
+                  className="font-mono text-[10px] uppercase tracking-eyebrow text-sea hover:text-ink"
+                >
+                  + New
+                </button>
+                <button
+                  type="button"
+                  aria-label="Hide history"
+                  onClick={() => setHistoryOpen(false)}
+                  className="px-1 font-mono text-[12px] text-muted hover:text-ink"
+                >
+                  ‹
+                </button>
+              </div>
+            </>
+          ) : (
+            <button
+              type="button"
+              aria-label="Show history"
+              onClick={() => setHistoryOpen(true)}
+              className="mx-auto px-1 font-mono text-[12px] text-muted hover:text-ink"
+            >
+              ›
+            </button>
+          )}
+        </div>
+
+        {historyOpen && (
+          <ul className="flex-1 overflow-y-auto px-1 py-1">
+            {historyLoading && sessions.length === 0 && (
+              <li className="px-2 py-2 font-mono text-[10px] uppercase tracking-eyebrow text-muted">
+                Loading…
+              </li>
+            )}
+            {!historyLoading && sessions.length === 0 && (
+              <li className="px-2 py-2 text-[11px] leading-snug text-muted">
+                No history yet. Send a message to start.
+              </li>
+            )}
+            {sessions.map((s) => {
+              const sel = s.id === sessionId;
+              return (
+                <li key={s.id}>
+                  <button
+                    type="button"
+                    onClick={() => void handleSwitch(s.id)}
+                    aria-current={sel ? 'true' : undefined}
+                    className={[
+                      'flex w-full items-baseline justify-between gap-2 border-l-2 px-2 py-1.5 text-left transition',
+                      sel
+                        ? 'border-ink bg-ink/[0.04] text-ink'
+                        : 'border-transparent text-ink hover:border-rule hover:bg-ink/[0.02]',
+                    ].join(' ')}
+                  >
+                    <span className="min-w-0 flex-1 truncate text-[12px]">{sessionLabel(s)}</span>
+                    <span className="shrink-0 font-mono text-[9px] tab-num text-muted">
+                      {relativeTime(s.created_at)}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </aside>
+
       {/* Conversation column */}
       <div className="flex h-[80vh] flex-col border border-rule bg-paper">
         <div className="flex items-baseline justify-between border-b border-rule px-4 py-3">
           <Eyebrow>Consultant interview · ILMU Nano</Eyebrow>
           <button
             type="button"
-            onClick={reset}
+            onClick={handleNewChat}
             className="font-mono text-[10px] uppercase tracking-eyebrow text-muted hover:text-rust"
           >
             Reset →

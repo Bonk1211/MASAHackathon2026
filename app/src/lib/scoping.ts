@@ -189,14 +189,64 @@ export function pinnedAxes(profile: ScopingProfile): ScopingAxis[] {
   });
 }
 
+// --- session list (Supabase-backed history) ------------------------------
+
+export type SessionSummary = {
+  id: string;
+  created_at: string;
+  client_label: string | null;
+  complete: boolean;
+  profile: ScopingProfile | null;
+};
+
+export async function listSessions(limit = 50): Promise<SessionSummary[]> {
+  const sb = getSupabase();
+  if (!sb) return [];
+  try {
+    const { data, error } = await sb
+      .from('scoping_sessions')
+      .select('id, created_at, client_label, complete, profile')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (error) return [];
+    return (data ?? []) as SessionSummary[];
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchSessionMessages(sessionId: string): Promise<ChatTurn[]> {
+  const sb = getSupabase();
+  if (!sb || !sessionId) return [];
+  try {
+    const { data, error } = await sb
+      .from('scoping_messages')
+      .select('role, content, created_at')
+      .eq('session_id', sessionId)
+      .order('created_at', { ascending: true })
+      .limit(400);
+    if (error || !data) return [];
+    return data
+      .filter((r): r is { role: string; content: string; created_at: string } =>
+        (r.role === 'user' || r.role === 'assistant') && typeof r.content === 'string' && r.content.length > 0,
+      )
+      .map((r) => ({
+        role: r.role as ChatRole,
+        content: r.content,
+        ts: r.created_at,
+      }));
+  } catch {
+    return [];
+  }
+}
+
 // --- hook ----------------------------------------------------------------
 
 export function useScoping() {
   const [profile, setProfile] = useState<ScopingProfile>(() => getScopingSnapshot());
   const [transcript, setTranscript] = useState<ChatTurn[]>(() => getTranscriptSnapshot());
-  const [sessionId] = useState<string>(() => getOrCreateSessionId());
+  const [sessionId, setSessionId] = useState<string>(() => getOrCreateSessionId());
 
-  // Replace the whole profile (backend sends the merged state every turn).
   const setFullProfile = useCallback(
     (full: ScopingProfile) => {
       const next = { ...full };
@@ -223,7 +273,45 @@ export function useScoping() {
     resetScoping();
     setProfile({});
     setTranscript([]);
+    // Recreate fresh session id so the next turn starts a new server-side row.
+    const fresh = crypto.randomUUID();
+    try {
+      localStorage.setItem(SESSION_KEY, fresh);
+    } catch {
+      /* ignore */
+    }
+    setSessionId(fresh);
   }, []);
+
+  // Switch to an existing Supabase session: load its transcript + profile and
+  // make it the active session_id (subsequent turns append to it).
+  const switchSession = useCallback(async (id: string) => {
+    if (!id || id === sessionId) return;
+    const [msgs, sb] = await Promise.all([fetchSessionMessages(id), Promise.resolve(getSupabase())]);
+    let nextProfile: ScopingProfile = {};
+    if (sb) {
+      try {
+        const { data } = await sb
+          .from('scoping_sessions')
+          .select('profile')
+          .eq('id', id)
+          .limit(1);
+        nextProfile = (data?.[0]?.profile as ScopingProfile) ?? {};
+      } catch {
+        nextProfile = {};
+      }
+    }
+    try {
+      localStorage.setItem(SESSION_KEY, id);
+    } catch {
+      /* ignore */
+    }
+    setSessionId(id);
+    setTranscript(msgs);
+    saveTranscript(msgs);
+    setProfile(nextProfile);
+    saveProfile(nextProfile);
+  }, [sessionId]);
 
   // Re-sync from storage when other tabs mutate it.
   useEffect(() => {
@@ -235,5 +323,5 @@ export function useScoping() {
     return () => window.removeEventListener('storage', onStorage);
   }, []);
 
-  return { profile, transcript, sessionId, setFullProfile, appendTurn, reset };
+  return { profile, transcript, sessionId, setFullProfile, appendTurn, reset, switchSession };
 }

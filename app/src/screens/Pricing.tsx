@@ -7,7 +7,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AgentPanel } from '../components/AgentPanel';
 import { Eyebrow, Hairline, StatBig } from '../components/Card';
 import { Ticker } from '../components/Ticker';
 import { InputCard } from '../components/pricing/InputCard';
@@ -34,7 +33,6 @@ type Mix = Record<(typeof SECTORS)[number], number>;
 
 const COUNTRIES = Object.keys(COUNTRY_TIER);
 const STORAGE_KEY = 'prism.savedCedents.v1';
-const ALLOWED_SCENARIOS = STRESS_2030.map((s) => s.scenario);
 
 const SCENARIO_COLOURS: Record<string, string> = {
   'Net Zero 2050':      '#3F8A66',
@@ -187,31 +185,6 @@ export function Pricing() {
     } catch (_) { /* ignore */ }
   };
 
-  // AgentPanel parses cedent + scenario params into the form.
-  const applyAgentUpdates = (p: Record<string, unknown>) => {
-    if (typeof p.country === 'string' && p.country in COUNTRY_TIER) {
-      setCountry(p.country);
-    }
-    if (p.mix && typeof p.mix === 'object' && !Array.isArray(p.mix)) {
-      const partial = p.mix as Partial<Mix>;
-      setMix((prev) => normalise({ ...prev, ...partial }));
-    }
-    if (typeof p.ndc_plan_filed === 'boolean') {
-      setNdcPlanFiled(p.ndc_plan_filed);
-    }
-    if (typeof p.energy_mix_pct === 'number') {
-      setEnergyMixPct(Math.max(0, Math.min(100, p.energy_mix_pct)));
-    }
-    if (typeof p.scenario === 'string' && ALLOWED_SCENARIOS.includes(p.scenario)) {
-      setScenario(p.scenario);
-    }
-    if (typeof p.elasticity === 'number') {
-      setElasticity(Math.max(0.3, Math.min(1.2, p.elasticity)));
-    }
-    if (typeof p.gwp_usdm === 'number') {
-      setGwp(Math.max(100, Math.min(5000, p.gwp_usdm)));
-    }
-  };
 
   const energyHint =
     energyMixPct >= 65 ? 'High-carbon · forces sector ≥ D'
@@ -219,7 +192,6 @@ export function Pricing() {
     : 'Diversified mix';
 
   return (
-    <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-6 lg:items-start">
     <div className="space-y-4">
       {/* Live HUD — recomputes inline from the same formula the modal uses */}
       <section className="border border-rule bg-paper">
@@ -666,13 +638,6 @@ export function Pricing() {
         onSave={saveProfile}
         onResult={setLastResult}
       />
-    </div>
-
-    <AgentPanel
-      screen="cedent"
-      currentState={{ country, mix, ndcPlanFiled, energyMixPct, scenario, elasticity, gwp_usdm: gwp }}
-      onUpdate={applyAgentUpdates}
-    />
     </div>
   );
 }

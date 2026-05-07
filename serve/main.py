@@ -40,7 +40,8 @@ app.add_middleware(
     allow_origins=[o.strip() for o in _origins if o.strip()],
     allow_credentials=False,
     allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["*"],
+    # Restrict to the headers the PWA actually sends — stricter than `*`.
+    allow_headers=["content-type", "authorization"],
 )
 
 
@@ -109,6 +110,8 @@ def predict(req: PredictRequest) -> dict:
 @app.post("/agent", response_model=AgentResponse)
 def agent(req: AgentRequest, request: Request) -> AgentResponse:
     ip = request.client.host if request.client else "unknown"
-    if not rate_limit_ok(ip):
+    # Pass the screen so scoping multi-turn interviews get the 60/min cap
+    # (cedent/stress remain at 30/min). See SCOPING_RATE_LIMIT_PER_MIN.
+    if not rate_limit_ok(ip, req.screen):
         raise HTTPException(status_code=429, detail="rate_limited")
     return handle_agent(req)

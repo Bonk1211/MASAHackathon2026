@@ -37,7 +37,6 @@ const Compare = lazy(() => import('./screens/Compare').then((m) => ({ default: m
 const Stress = lazy(() => import('./screens/Stress').then((m) => ({ default: m.Stress })));
 const Cedent = lazy(() => import('./screens/Cedent').then((m) => ({ default: m.Cedent })));
 const Actions = lazy(() => import('./screens/Actions').then((m) => ({ default: m.Actions })));
-const Brief = lazy(() => import('./screens/Brief').then((m) => ({ default: m.Brief })));
 const Evidence = lazy(() => import('./screens/Evidence').then((m) => ({ default: m.Evidence })));
 
 function Loading() {
@@ -80,7 +79,7 @@ export default function App() {
           <Route path="appendix/stress"     element={<L><Stress /></L>} />
           <Route path="appendix/cedent"     element={<L><Cedent /></L>} />
           <Route path="appendix/actions"    element={<L><Actions /></L>} />
-          <Route path="appendix/brief"      element={<L><Brief /></L>} />
+          <Route path="appendix/brief"      element={<Navigate to="/appendix/report" replace />} />
           <Route path="appendix/evidence"   element={<L><Evidence /></L>} />
 
           {/* Legacy top-level paths — preserve deep-link survival via redirect. */}
@@ -96,7 +95,7 @@ export default function App() {
           <Route path="stress"     element={<Navigate to="/appendix/stress" replace />} />
           <Route path="cedent"     element={<Navigate to="/appendix/cedent" replace />} />
           <Route path="actions"    element={<Navigate to="/appendix/actions" replace />} />
-          <Route path="brief"      element={<Navigate to="/appendix/brief" replace />} />
+          <Route path="brief"      element={<Navigate to="/appendix/report" replace />} />
           <Route path="evidence"   element={<Navigate to="/appendix/evidence" replace />} />
 
           <Route path="*" element={<Landing />} />
