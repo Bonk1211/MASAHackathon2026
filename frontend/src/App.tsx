@@ -7,15 +7,9 @@ import { Onboarding } from './screens/Onboarding';
 import { Pipeline } from './screens/Pipeline';
 
 // Engagement Phase 1–6 screens (lazy).
-// Phase 1 owned by frontend-phase1; Phase 2-6 owned by frontend-phases-2-6.
-const Phase1Scoping = lazy(() =>
-  import('./screens/Phase1Scoping').then((m) => ({ default: m.Phase1Scoping })),
-);
-const Phase2RiskTaxonomy = lazy(() =>
-  import('./screens/Phase2RiskTaxonomy').then((m) => ({ default: m.Phase2RiskTaxonomy })),
-);
-const Phase3IndicatorMapping = lazy(() =>
-  import('./screens/Phase3IndicatorMapping').then((m) => ({ default: m.Phase3IndicatorMapping })),
+// Phase 1 = Discovery — consolidated chat + taxonomy + indicators in one tab.
+const Phase1Discovery = lazy(() =>
+  import('./screens/Phase1Discovery').then((m) => ({ default: m.Phase1Discovery })),
 );
 const Phase4DataPipeline = lazy(() =>
   import('./screens/Phase4DataPipeline').then((m) => ({ default: m.Phase4DataPipeline })),
@@ -65,10 +59,13 @@ export default function App() {
         <Route element={<Layout />}>
           <Route index element={<Landing />} />
 
-          {/* Engagement Phase 1–6 — primary navigation */}
-          <Route path="phase1" element={<L><Phase1Scoping /></L>} />
-          <Route path="phase2" element={<L><Phase2RiskTaxonomy /></L>} />
-          <Route path="phase3" element={<L><Phase3IndicatorMapping /></L>} />
+          {/* Engagement — primary navigation. Discovery (phase1) consolidates the
+              former Phase 1 (scoping), Phase 2 (taxonomy), and Phase 3 (indicators)
+              into a single LLM-driven flow. Legacy /phase2 + /phase3 deep-links
+              redirect back to discovery to keep external bookmarks alive. */}
+          <Route path="phase1" element={<L><Phase1Discovery /></L>} />
+          <Route path="phase2" element={<Navigate to="/phase1" replace />} />
+          <Route path="phase3" element={<Navigate to="/phase1" replace />} />
           <Route path="phase4" element={<L><Phase4DataPipeline /></L>} />
           <Route path="phase5" element={<L><Phase5Modeling /></L>} />
           <Route path="phase6" element={<L><Phase6Strategy /></L>} />

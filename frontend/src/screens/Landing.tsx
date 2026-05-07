@@ -289,24 +289,6 @@ export function Landing() {
         </ul>
       </section>
 
-      {/* PERSISTENT CTA — primary path */}
-      <Link
-        to="/pipeline"
-        className="group flex items-center justify-between border border-ink bg-ink px-5 py-4 text-paper transition active:bg-ink/95 lg:px-10 lg:py-6"
-      >
-        <span className="flex items-baseline gap-4 lg:gap-6">
-          <span className="font-mono text-[11px] uppercase tracking-eyebrow text-paper/70">
-            Begin
-          </span>
-          <span className="display text-[20px] italic lg:text-[28px]">
-            See the model run live
-          </span>
-        </span>
-        <span aria-hidden="true" className="font-mono text-[14px] lg:text-[18px]">
-          →
-        </span>
-      </Link>
-
       {/* FOOTER */}
       <Card tone="paper">
         <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center lg:gap-6">

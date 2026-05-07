@@ -197,8 +197,50 @@ ASK_FOLLOWUP_TOOL = {
 
 
 # --- system prompt --------------------------------------------------------
+#
+# Tuned for ilmu-nemo-nano. Constraints learned the hard way:
+#   - Stay under ~800 chars; longer prompts make the model thrash past
+#     max_tokens without emitting any tool call.
+#   - Always force a tool call. Plain-text replies are fallback-handled but
+#     break the wizard flow; the prompt repeats this rule at top + bottom.
+#   - Shape examples must use the EXACT enum casing the validator accepts
+#     ("property_cat", "TCFD", "ISSB_S2"). Prose hints like "TCFD only" fail.
 
-SYSTEM_PROMPT = """You are a climate-risk consultant scoping a Hannover Re cedent. Pin axes in order: line_of_business, geography, time_horizon, frameworks, disclosures. Concrete answer → set_scoping_axis at confidence 0.9. Vague → ask_followup."""
+SYSTEM_PROMPT = """You are ILMU, a senior climate-risk consultant at Hannover Re APAC.
+Mission: a 5-axis cedent intake. ONE axis per turn, in fixed order:
+line_of_business → geography → time_horizon → frameworks → disclosures.
+
+DECISION RULE
+- Concrete answer with numbers / enum tags → set_scoping_axis @ confidence 0.9.
+- Anything else (greeting, single keyword, hedged, off-topic) → ask_followup with
+  ONE crisp question that ECHOES the user's keyword and demands the missing
+  detail. ≤ 25 words. Always cite 1–2 example values.
+
+EXAMPLES (do not deviate)
+- user: "70% property cat, 20% agriculture, 10% specialty"
+  → set_scoping_axis(line_of_business, {"property_cat":70,"agriculture":20,"specialty":10}, 0.9)
+- user: "property"
+  → ask_followup("Got property cat — what share of the book? e.g. 70 %, 90 %.", "line_of_business")
+- user: "hi" / "whats up" / ""
+  → ask_followup("Let's start with the book mix — what % is property cat, agriculture, life, casualty, specialty?", "line_of_business")
+- user: "vietnam"
+  → ask_followup("Got Vietnam — any other markets? e.g. Philippines, Indonesia.", "geography")
+- user: "tcfd"
+  → ask_followup("TCFD noted — anything else? e.g. ISSB_S2, Solvency_II_ORSA.", "frameworks")
+
+PAYLOAD SHAPES (exact keys / enum casing)
+- line_of_business → {"property_cat":70,"agriculture":20,"specialty":10}  (sums ≈100)
+- geography        → {"tags":["Vietnam","Philippines","Indonesia"]}
+- time_horizon     → {"uw_years":1,"life_years":30}
+- frameworks       → {"tags":["TCFD","ISSB_S2"]}  enum: TCFD ISSB_S2 Solvency_II_ORSA NAIC Internal_Capital Other
+- disclosures      → {"tags":["TCFD","ISSB_S2"]}  enum: TCFD ISSB_S2 Regulatory_Stress_Test Internal_Only
+
+STYLE
+- Warm, terse, plain English. ≤ 2 sentences of prose.
+- Never re-list pinned axes — the server echoes captures back.
+- Never repeat the same primer twice. If the user gave a partial answer, build
+  on it ("Got X — what's the percentage?") rather than restarting.
+- ALWAYS emit exactly ONE tool call. Never reply with prose only."""
 
 
 # --- validation -----------------------------------------------------------
@@ -472,12 +514,79 @@ def is_profile_complete(profile: dict[str, Any]) -> bool:
 # happened and what's being asked next. Templated to keep server-side and
 # avoid an extra LLM round-trip.
 
+# Server-side narration helpers. Not seen by the LLM — used to write the
+# "Captured X. Next: Y?" assistant message after a successful tool call.
 _NEXT_AXIS_QUESTION: dict[str, str] = {
-    "geography": "Where is this book written geographically — country tags or regional?",
-    "time_horizon": "What time horizons matter — annual underwriting and liability tail in years?",
-    "frameworks": "Which capital or disclosure frameworks does the cedent operate under (TCFD, ISSB_S2, Solvency_II_ORSA, NAIC)?",
-    "disclosures": "What does the cedent publicly disclose — TCFD, ISSB_S2, Regulatory_Stress_Test, or Internal_Only?",
+    "line_of_business": "What's the book mix by line — e.g. 70 % property cat, 20 % agriculture, 10 % specialty?",
+    "geography":        "Which markets is the book written in — Vietnam, Philippines, Indonesia, …?",
+    "time_horizon":     "What horizons matter — typical underwriting year and the liability tail?",
+    "frameworks":       "Which capital / disclosure frameworks apply — TCFD, ISSB_S2, Solvency_II_ORSA, NAIC?",
+    "disclosures":      "What's actually published — TCFD, ISSB_S2, regulatory stress test, or internal only?",
 }
+
+# Partial-answer probes — fired only when the model returned no tool and the
+# user's last message contains a recognised keyword for the current axis. These
+# questions ALWAYS differ from the generic axis primer above, so the chat
+# never looks like it's looping the same prompt.
+_PARTIAL_FOLLOWUP_LOB: tuple[tuple[tuple[str, ...], str], ...] = (
+    (("property", "cat"),
+     "Got property cat — what share of the book? e.g. 70 %, 90 %, or a split with another line."),
+    (("agri",),
+     "Got agriculture — what % of the book? Pair it with other lines (e.g. 30 % agri, 60 % property cat, 10 % specialty)."),
+    (("life",),
+     "Got life — what % of the book? Pair it with non-life lines (e.g. 60 % life, 30 % casualty, 10 % specialty)."),
+    (("casualty", "liability"),
+     "Got casualty — what % of the book? Pair it with the other lines (property cat, agriculture, life, specialty)."),
+    (("specialty",),
+     "Got specialty — what % of the book? Pair it with the other lines (property cat, agriculture, life, casualty)."),
+)
+
+_PARTIAL_FOLLOWUP_GEO = (
+    "I need country tags — pick a few SEA markets (Vietnam, Philippines, Indonesia, Thailand, Malaysia, Singapore)."
+)
+
+_PARTIAL_FOLLOWUP_TIME = (
+    "Give me two integers — underwriting year and liability tail. e.g. '1-year underwriting, 30-year tail'."
+)
+
+_PARTIAL_FOLLOWUP_FW = (
+    "Pick from the canonical enum: TCFD, ISSB_S2, Solvency_II_ORSA, NAIC, Internal_Capital, Other."
+)
+
+_PARTIAL_FOLLOWUP_DISC = (
+    "Pick from the canonical enum: TCFD, ISSB_S2, Regulatory_Stress_Test, Internal_Only."
+)
+
+
+def _smart_fallback_question(user_message: str, next_axis: str) -> str | None:
+    """Return a context-aware probe based on tokens found in the user reply.
+
+    Used only by the no-tool fallback path. Returns None when the message
+    has no recognisable axis keyword — the caller then drops to the generic
+    next-axis primer.
+    """
+    msg = user_message.lower().strip()
+    if not msg:
+        return None
+    if next_axis == "line_of_business":
+        for tokens, question in _PARTIAL_FOLLOWUP_LOB:
+            if any(tok in msg for tok in tokens):
+                return question
+        # Greeting / off-topic short messages → nudge with one example.
+        if len(msg) <= 12:
+            return (
+                "Tell me the book mix — pick the lines (property cat / agriculture / life / casualty / specialty) "
+                "and rough percentages. e.g. '70 % property cat, 20 % agriculture, 10 % specialty'."
+            )
+    if next_axis == "geography":
+        return _PARTIAL_FOLLOWUP_GEO
+    if next_axis == "time_horizon":
+        return _PARTIAL_FOLLOWUP_TIME
+    if next_axis == "frameworks":
+        return _PARTIAL_FOLLOWUP_FW
+    if next_axis == "disclosures":
+        return _PARTIAL_FOLLOWUP_DISC
+    return None
 
 
 def _explain_pin(
@@ -551,11 +660,14 @@ def _explain_pin(
     # Next-axis question.
     next_axis = next((a for a in _AXES if a not in profile_after), None)
     if next_axis is None:
-        return f"Captured: {captured}. {why}. All five axes pinned — Phase 1 complete."
+        tail = f" {why}." if why else ""
+        return (
+            f"Got it — {captured}.{tail} "
+            "All five axes pinned. I'll propose the risk taxonomy in the next bubble."
+        )
     next_q = _NEXT_AXIS_QUESTION.get(next_axis, f"What about {next_axis.replace('_', ' ')}?")
-    if why:
-        return f"Captured: {captured}. {why}. Next: {next_q}"
-    return f"Captured: {captured}. Next: {next_q}"
+    tail = f" {why}." if why else ""
+    return f"Got it — {captured}.{tail} {next_q}"
 
 
 # --- ILMU call ------------------------------------------------------------
@@ -721,13 +833,23 @@ def handle_scoping(
     if not tool_name:
         # ILMU nemo-nano with tool_choice="auto" sometimes emits prose
         # without calling a tool, or returns nothing. Either way, never
-        # dead-end the interview — synthesize an ask_followup so the user
-        # always gets a forward-moving response.
+        # dead-end the interview. Picking a fallback question, in priority:
+        #   1. Model narration (if it gave any prose).
+        #   2. Smart partial-answer probe — keyed off the user's last message.
+        #   3. Generic axis primer.
+        # Step 2 is what stops "user typed 'property' → bot re-asks the same
+        # opening primer" loops.
         next_axis = next((a for a in _AXES if a not in profile), "line_of_business")
-        fallback_question = narration.strip()[:240] if narration else (
-            f"Could you say more about your {next_axis.replace('_', ' ')}? "
-            "A concrete answer helps me move forward."
-        )
+        smart = _smart_fallback_question(user_message, next_axis)
+        primer = _NEXT_AXIS_QUESTION.get(next_axis, "")
+        if narration.strip():
+            fallback_question = narration.strip()[:240]
+        elif smart:
+            fallback_question = smart
+        else:
+            fallback_question = (
+                primer or f"Tell me about your {next_axis.replace('_', ' ')} — a concrete answer helps me pin this axis."
+            )
         tool_name = "ask_followup"
         tool_args = {"question": fallback_question, "axis": next_axis}
         updates = {"axis": next_axis, "question": fallback_question}

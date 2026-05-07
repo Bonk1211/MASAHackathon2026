@@ -1,10 +1,18 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, ReferenceLine } from 'recharts';
 import { Card, Eyebrow, Hairline, StatBig } from '../components/Card';
 import { EvidenceModal } from '../components/EvidenceModal';
 import { Ticker } from '../components/Ticker';
-import { HEADLINE, PORTFOLIO } from '../data/keyNumbers';
+import { HEADLINE, PORTFOLIO, STRESS_2030 } from '../data/keyNumbers';
 import { EVIDENCE_BY_ID } from '../data/evidence';
+
+const SCENARIO_COLOURS: Record<string, string> = {
+  'Net Zero 2050':      '#3F8A66',
+  'Mitigation':         '#0E7C86',
+  'Delayed Transition': '#B8761C',
+  'Current Policies':   '#8B2E1F',
+};
 
 function ShareLink() {
   const [copied, setCopied] = useState(false);
@@ -84,6 +92,45 @@ export function Story() {
               <button onClick={() => open('mape-xgb')} className="block w-full text-left evidence-tap">
                 <StatBig value={`${HEADLINE.mapeXGBPct}%`} label="MAPE 2024" accent="sea" size="lg" hint="XGBoost hold-out" />
               </button>
+            </div>
+
+            {/* Scenario fan — one glance at the 4-pathway spread that produces the headline */}
+            <div className="mt-6 border-t border-rule pt-4">
+              <Eyebrow>2030 expected loss · 4 pathways</Eyebrow>
+              <div className="mt-3 h-32 lg:h-36">
+                <ResponsiveContainer>
+                  <BarChart data={STRESS_2030} margin={{ top: 4, right: 4, left: -22, bottom: 18 }}>
+                    <XAxis
+                      dataKey="scenario"
+                      tickLine={false}
+                      axisLine={false}
+                      fontSize={8}
+                      interval={0}
+                      angle={-15}
+                      textAnchor="end"
+                      height={34}
+                    />
+                    <YAxis tickLine={false} axisLine={false} fontSize={9} tickFormatter={(v) => `${(v / 1000).toFixed(1)}b`} />
+                    <Tooltip
+                      formatter={(v) => `USD ${Math.round(Number(v))}m`}
+                      cursor={{ fill: 'rgba(10,26,42,0.04)' }}
+                    />
+                    <ReferenceLine
+                      y={PORTFOLIO.gwpUsdM * PORTFOLIO.baseLossRatio}
+                      stroke="rgba(10,26,42,0.40)"
+                      strokeDasharray="3 3"
+                    />
+                    <Bar dataKey="lossUsdM" radius={[2, 2, 0, 0]}>
+                      {STRESS_2030.map((s) => (
+                        <Cell key={s.scenario} fill={SCENARIO_COLOURS[s.scenario] ?? '#0E7C86'} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <p className="mt-1 font-mono text-[9px] uppercase tracking-eyebrow text-muted">
+                Dashed line = base. USD {HEADLINE.lossSwingUsdM} m swing = right-most minus left-most bar.
+              </p>
             </div>
           </div>
         </div>

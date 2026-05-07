@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, ReferenceLine,
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, ReferenceLine, LabelList,
+  RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
 } from 'recharts';
 import { Card, Eyebrow, Hairline } from '../components/Card';
 import {
@@ -79,30 +80,116 @@ function CompareView() {
     <>
       <CompareLegend />
 
-      <Card title="Hazard & loss" subtitle="EM-DAT 2018-2023 (HDX snapshot 2026-04-24); 2024-CPI USD.">
-        <CompareTable
-          rows={[
-            ['Events / yr', vn.perYear.toFixed(1), ph.perYear.toFixed(1)],
-            ['Storms / floods', `${vn.storms} / ${vn.floods}`, `${ph.storms} / ${ph.floods}`],
-            ['Other (quake / volcanic)', vn.other.toString(), ph.other.toString()],
-            ['Affected (m)', vn.affectedM.toFixed(1), ph.affectedM.toFixed(1)],
-            ['Fatalities', vn.deaths.toLocaleString(), ph.deaths.toLocaleString()],
-            ['Damage USD bn', vn.damageUsdBn2024.toFixed(2), ph.damageUsdBn2024.toFixed(2)],
-            ['Insured / yr (σ12 %)', `USD ${insVN.toFixed(0)} m`, `USD ${insPH.toFixed(0)} m`],
-          ]}
-        />
+      <Card title="Hazard & loss · ratio" subtitle="EM-DAT 2018-2023 (HDX snapshot 2026-04-24); 2024-CPI USD. Bars = PH ÷ VN — leftward = VN heavier.">
+        <div className="h-72">
+          <ResponsiveContainer>
+            <BarChart
+              data={[
+                { metric: 'Events / yr',     vn: vn.perYear,         ph: ph.perYear,         unit: 'events' },
+                { metric: 'Storms',          vn: vn.storms,          ph: ph.storms,          unit: 'count' },
+                { metric: 'Floods',          vn: vn.floods,          ph: ph.floods,          unit: 'count' },
+                { metric: 'Affected (m)',    vn: vn.affectedM,       ph: ph.affectedM,       unit: 'm people' },
+                { metric: 'Fatalities',      vn: vn.deaths,          ph: ph.deaths,          unit: 'people' },
+                { metric: 'Damage USD bn',   vn: vn.damageUsdBn2024, ph: ph.damageUsdBn2024, unit: 'USD bn' },
+                { metric: 'Insured/yr USD m', vn: insVN,             ph: insPH,              unit: 'USD m' },
+              ].map((r) => {
+                const ratio = r.vn === 0 ? 0 : r.ph / r.vn;
+                return { ...r, ratio: Number((ratio - 1).toFixed(2)) };
+              })}
+              layout="vertical"
+              margin={{ top: 8, right: 56, left: 8, bottom: 8 }}
+              barCategoryGap={6}
+            >
+              <XAxis
+                type="number"
+                domain={[-1.2, 5]}
+                tickLine={false}
+                axisLine={{ stroke: 'rgba(11,31,51,0.18)' }}
+                fontSize={10}
+                tickFormatter={(v) => (v === 0 ? 'parity' : `${v > 0 ? '+' : ''}${(Number(v) * 100).toFixed(0)}%`)}
+              />
+              <YAxis type="category" dataKey="metric" width={140} tickLine={false} axisLine={false} fontSize={10} />
+              <ReferenceLine x={0} stroke="rgba(11,31,51,0.55)" />
+              <Tooltip
+                cursor={{ fill: 'rgba(11,31,51,0.04)' }}
+                content={({ active, payload }) => {
+                  if (!active || !payload?.length) return null;
+                  const d = payload[0].payload as { metric: string; vn: number; ph: number; unit: string; ratio: number };
+                  return (
+                    <div className="border border-rule bg-paper px-2 py-1.5 text-[11px]">
+                      <div className="font-semibold text-ink">{d.metric}</div>
+                      <div className="font-mono tab-num text-muted">
+                        VN {d.vn.toLocaleString()} {d.unit} · PH {d.ph.toLocaleString()} {d.unit}
+                      </div>
+                    </div>
+                  );
+                }}
+              />
+              <Bar dataKey="ratio" radius={[0, 3, 3, 0]}>
+                {[1, 2, 3, 4, 5, 6, 7].map((_, i) => (
+                  <Cell key={i} fill={PH_COLOUR} />
+                ))}
+                <LabelList
+                  dataKey="ratio"
+                  position="right"
+                  fontSize={10}
+                  formatter={(v) => `${Number(v) >= 0 ? '+' : ''}${(Number(v) * 100).toFixed(0)}%`}
+                />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        <p className="mt-2 font-mono text-[10px] uppercase tracking-eyebrow text-muted">
+          PH carries +163% damage and +224% fatalities vs VN; VN's exposure is concentrated in storms (88% of events).
+        </p>
       </Card>
 
-      <Card title="Adaptive & tier" subtitle="ND-GAIN 2023 (Notre Dame); country tier per cedent framework §3.">
-        <CompareTable
-          rows={[
-            ['ND-GAIN composite', ndgVN.gain.toFixed(1), ndgPH.gain.toFixed(1)],
-            ['Readiness (↑ better)', ndgVN.ready.toFixed(3), ndgPH.ready.toFixed(3)],
-            ['Vulnerability (↓ better)', ndgVN.vuln.toFixed(3), ndgPH.vuln.toFixed(3)],
-            ['STIRPAT residual', `${COUNTRY_TIER.Vietnam.residualPct >= 0 ? '+' : ''}${COUNTRY_TIER.Vietnam.residualPct} %`, `${COUNTRY_TIER.Philippines.residualPct} %`],
-          ]}
-          tierRow={{ vn: COUNTRY_TIER.Vietnam.tier, ph: COUNTRY_TIER.Philippines.tier }}
-        />
+      <Card title="Adaptive capacity · ND-GAIN radar" subtitle="ND-GAIN 2023 (Notre Dame). Larger area = healthier risk profile (readiness up, vulnerability down).">
+        <div className="grid items-center gap-4 lg:grid-cols-[1fr_auto]">
+          <div className="h-56">
+            <ResponsiveContainer>
+              <RadarChart
+                data={[
+                  // Normalize each metric to a 0-100 "good score" for VN/PH.
+                  { axis: 'Composite',     vietnam: ndgVN.gain,                 philippines: ndgPH.gain,                 fmt: 'gain' },
+                  { axis: 'Readiness',     vietnam: ndgVN.ready * 100,          philippines: ndgPH.ready * 100,          fmt: 'pct' },
+                  // Vulnerability lower-is-better → invert: 100 × (1 - vuln).
+                  { axis: 'Vuln. (inv.)',  vietnam: (1 - ndgVN.vuln) * 100,     philippines: (1 - ndgPH.vuln) * 100,     fmt: 'pct' },
+                  // STIRPAT residual: |residual| → 100 - |r|, clamped to [0, 100].
+                  {
+                    axis: 'STIRPAT fit',
+                    vietnam: Math.max(0, 100 - Math.abs(COUNTRY_TIER.Vietnam.residualPct)),
+                    philippines: Math.max(0, 100 - Math.abs(COUNTRY_TIER.Philippines.residualPct)),
+                    fmt: 'pct',
+                  },
+                ]}
+                margin={{ top: 8, right: 24, bottom: 8, left: 24 }}
+                outerRadius="78%"
+              >
+                <PolarGrid stroke="rgba(11,31,51,0.18)" />
+                <PolarAngleAxis dataKey="axis" tick={{ fontSize: 10, fill: '#0B1F33' }} />
+                <PolarRadiusAxis domain={[0, 100]} tick={{ fontSize: 9, fill: 'rgba(11,31,51,0.45)' }} angle={45} />
+                <Tooltip formatter={(v) => Number(v).toFixed(1)} />
+                <Radar name="Vietnam" dataKey="vietnam" stroke={VN_COLOUR} fill={VN_COLOUR} fillOpacity={0.30} />
+                <Radar name="Philippines" dataKey="philippines" stroke={PH_COLOUR} fill={PH_COLOUR} fillOpacity={0.30} />
+              </RadarChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="flex flex-col gap-3 text-[11px]">
+            <div className="flex items-center justify-between gap-3 border border-rule bg-paper px-2.5 py-1.5">
+              <span className="font-mono uppercase tracking-eyebrow text-muted">VN tier</span>
+              <TierBadge t={COUNTRY_TIER.Vietnam.tier} />
+            </div>
+            <div className="flex items-center justify-between gap-3 border border-rule bg-paper px-2.5 py-1.5">
+              <span className="font-mono uppercase tracking-eyebrow text-muted">PH tier</span>
+              <TierBadge t={COUNTRY_TIER.Philippines.tier} />
+            </div>
+            <p className="text-muted">
+              Vietnam (red) closer to centre on STIRPAT fit (residual +24 %); Philippines (teal) wider area on the
+              vulnerability axis but anchors a heavier insured-asset base.
+            </p>
+          </div>
+        </div>
       </Card>
 
       <Card title="Market structure" subtitle="Swiss Re sigma 1/2024; PH IC + VN MOF Q4 2024 reports.">
@@ -164,32 +251,6 @@ function CompareLegend() {
         Philippines
       </span>
     </div>
-  );
-}
-
-function CompareTable({
-  rows, tierRow,
-}: {
-  rows: [string, string, string][];
-  tierRow?: { vn: string; ph: string };
-}) {
-  return (
-    <dl className="divide-y divide-ink/5 text-sm">
-      {rows.map(([label, vn, ph]) => (
-        <div key={label} className="grid grid-cols-[1fr_auto_auto] gap-x-4 py-1.5">
-          <dt className="text-[12px] text-muted">{label}</dt>
-          <dd className="w-16 text-right font-semibold tabular-nums text-ink">{vn}</dd>
-          <dd className="w-16 text-right font-semibold tabular-nums text-ink">{ph}</dd>
-        </div>
-      ))}
-      {tierRow && (
-        <div className="grid grid-cols-[1fr_auto_auto] gap-x-4 py-1.5">
-          <dt className="text-[12px] text-muted">Country tier</dt>
-          <dd className="w-16 text-right"><TierBadge t={tierRow.vn} /></dd>
-          <dd className="w-16 text-right"><TierBadge t={tierRow.ph} /></dd>
-        </div>
-      )}
-    </dl>
   );
 }
 

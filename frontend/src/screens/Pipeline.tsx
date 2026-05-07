@@ -1,4 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
+  ReferenceLine, LabelList, Legend as RLegend,
+} from 'recharts';
 import { Card, Eyebrow, Hairline, StatBig } from '../components/Card';
 import { useFocusTrap } from '../lib/useFocusTrap';
 import { AnimatedNumber } from '../components/pipeline/AnimatedNumber';
@@ -821,32 +825,78 @@ function InspectSheet({
 }
 
 function Inspect01({ trace, titleId }: { trace: Trace; titleId: string }) {
+  // Display each feature as a percentage of its absolute value range across
+  // SEA so wildly different scales (log GDP ≈ 25, urban % ≈ 60) plot together.
+  // Override deltas show as a second bar in rust.
+  const rows = Object.entries(trace.stage_1_inputs.raw_features).map(([k, v]) => {
+    const baseNum = typeof v === 'number' ? v : 0;
+    const ov = trace.stage_1_inputs.applied_overrides[k];
+    const overrideNum = typeof ov === 'number' ? ov : null;
+    const denom = Math.max(Math.abs(baseNum), Math.abs(overrideNum ?? 0), 1e-9);
+    return {
+      feature: PRETTY_FEATURE[k] ?? k,
+      base: baseNum,
+      override: overrideNum,
+      basePct: 100 * (baseNum / denom),
+      overridePct: overrideNum != null ? 100 * (overrideNum / denom) : null,
+    };
+  });
   return (
     <>
       <h2 id={titleId} className="display text-[28px] leading-tight text-ink">Raw input vector</h2>
-      <p className="mt-1 text-[12px] text-muted">Pulled from sea_panel row · {trace.stage_1_inputs.country} · base year {trace.stage_1_inputs.mode === 'hindcast' ? 2023 : 2024}.</p>
+      <p className="mt-1 text-[12px] text-muted">Pulled from sea_panel row · {trace.stage_1_inputs.country} · base year {trace.stage_1_inputs.mode === 'hindcast' ? 2023 : 2024}. Each row scaled to its own max so cross-feature deltas read.</p>
       <Hairline className="mt-3" />
-      <table className="mt-3 w-full text-[12px]">
-        <thead>
-          <tr className="border-b border-rule">
-            <th className="py-1 text-left text-[10px] uppercase tracking-eyebrow text-muted">Feature</th>
-            <th className="py-1 text-right text-[10px] uppercase tracking-eyebrow text-muted">Base</th>
-            <th className="py-1 text-right text-[10px] uppercase tracking-eyebrow text-muted">Override</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-rule">
-          {Object.entries(trace.stage_1_inputs.raw_features).map(([k, v]) => {
-            const ov = trace.stage_1_inputs.applied_overrides[k];
-            return (
-              <tr key={k}>
-                <td className="py-1.5 text-ink">{PRETTY_FEATURE[k] ?? k}</td>
-                <td className="py-1.5 text-right font-mono tab-num text-ink/70">{typeof v === 'number' ? v.toFixed(3) : String(v)}</td>
-                <td className="py-1.5 text-right font-mono tab-num text-rust">{ov !== undefined ? ov.toFixed(3) : '—'}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      <div className="mt-3 h-72">
+        <ResponsiveContainer>
+          <BarChart
+            data={rows}
+            layout="vertical"
+            margin={{ top: 4, right: 64, left: 4, bottom: 4 }}
+            barGap={2}
+            barCategoryGap={4}
+          >
+            <XAxis
+              type="number"
+              domain={[-110, 110]}
+              tickLine={false}
+              axisLine={{ stroke: 'rgba(10,26,42,0.18)' }}
+              fontSize={9}
+              tickFormatter={(v) => `${v}%`}
+            />
+            <YAxis type="category" dataKey="feature" width={140} tickLine={false} axisLine={false} fontSize={10} />
+            <ReferenceLine x={0} stroke="rgba(10,26,42,0.45)" />
+            <Tooltip
+              cursor={{ fill: 'rgba(10,26,42,0.04)' }}
+              content={({ active, payload }) => {
+                if (!active || !payload?.length) return null;
+                const d = payload[0].payload as { feature: string; base: number; override: number | null };
+                return (
+                  <div className="border border-rule bg-paper px-2 py-1.5 text-[11px]">
+                    <div className="font-semibold text-ink">{d.feature}</div>
+                    <div className="font-mono tab-num text-muted">
+                      base {d.base.toFixed(3)}
+                      {d.override !== null && d.override !== undefined && (
+                        <> · override <span className="text-rust">{d.override.toFixed(3)}</span></>
+                      )}
+                    </div>
+                  </div>
+                );
+              }}
+            />
+            <RLegend wrapperStyle={{ fontSize: 9 }} iconType="square" verticalAlign="top" align="right" height={16} />
+            <Bar dataKey="basePct" name="Base" fill="#0E7C86" fillOpacity={0.7} radius={[0, 2, 2, 0]} />
+            <Bar dataKey="overridePct" name="Override" fill="#8B2E1F" radius={[0, 2, 2, 0]}>
+              <LabelList
+                dataKey="override"
+                position="right"
+                fontSize={9}
+                fill="#8B2E1F"
+                formatter={(v) => (v == null ? '' : Number(v).toFixed(2))}
+              />
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
     </>
   );
 }
@@ -875,43 +925,73 @@ function Inspect03({ trace, titleId }: { trace: Trace; titleId: string }) {
 
       <div className="mt-3 grid gap-4 lg:grid-cols-2">
         <div>
-          <Eyebrow>Performance · feature gain (M3b)</Eyebrow>
-          <ul className="mt-2 space-y-1.5">
-            {DRIVERS.slice(0, 6).map((d) => (
-              <li key={d.feature} className="flex items-center gap-2">
-                <span className="w-32 text-[11px] text-ink">{d.feature}</span>
-                <div className="h-2 flex-1 bg-ink/10">
-                  <div className="h-full bg-sea" style={{ width: `${(d.gain * 100).toFixed(1)}%` }} />
-                </div>
-                <span className="w-10 text-right font-mono text-[10px] tab-num text-ink">{(d.gain * 100).toFixed(1)}%</span>
-              </li>
-            ))}
-          </ul>
+          <Eyebrow>Feature gain · M3b</Eyebrow>
+          <p className="mt-1 text-[10px] text-muted">Average loss reduction per split · log-GDP + log-pop dominate.</p>
+          <div className="mt-2 h-44">
+            <ResponsiveContainer>
+              <BarChart
+                data={DRIVERS.slice(0, 6).map((d) => ({ feature: d.feature, gain: d.gain * 100, kind: d.kind }))}
+                layout="vertical"
+                margin={{ top: 4, right: 38, left: 4, bottom: 4 }}
+                barCategoryGap={4}
+              >
+                <XAxis type="number" tickLine={false} axisLine={false} fontSize={9} tickFormatter={(v) => `${v}%`} />
+                <YAxis type="category" dataKey="feature" width={130} tickLine={false} axisLine={false} fontSize={10} />
+                <Tooltip formatter={(v) => `${Number(v).toFixed(1)}%`} cursor={{ fill: 'rgba(10,26,42,0.04)' }} />
+                <Bar dataKey="gain" radius={[0, 2, 2, 0]}>
+                  {DRIVERS.slice(0, 6).map((d) => (
+                    <Cell
+                      key={d.feature}
+                      fill={d.kind === 'scale' ? '#0A1A2A' : d.kind === 'tech' ? '#0E7C86' : '#3F8A66'}
+                    />
+                  ))}
+                  <LabelList dataKey="gain" position="right" fontSize={9} fill="#0A1A2A" formatter={(v) => `${Number(v).toFixed(1)}%`} />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
 
         <div>
-          <Eyebrow>Diagnostic · sign-flips</Eyebrow>
-          <table className="mt-2 w-full text-[11px]">
-            <thead>
-              <tr className="border-b border-rule">
-                <th className="py-1 text-left text-[9px] uppercase tracking-eyebrow text-muted">Feature</th>
-                <th className="py-1 text-right text-[9px] uppercase tracking-eyebrow text-muted">Pair r</th>
-                <th className="py-1 text-right text-[9px] uppercase tracking-eyebrow text-muted">Partial r</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-rule">
-              {canon.partial_correlations.map((r) => (
-                <tr key={r.feature}>
-                  <td className="py-1 text-ink">
-                    {r.feature}
-                    {r.flag === 'SIGN-FLIP' && <span className="ml-1 font-mono text-[8px] uppercase tracking-eyebrow text-amber">FLIP</span>}
-                  </td>
-                  <td className="py-1 text-right font-mono tab-num text-sea">{r.pairwise_r >= 0 ? '+' : ''}{r.pairwise_r.toFixed(2)}</td>
-                  <td className="py-1 text-right font-mono tab-num text-rust">{r.partial_r >= 0 ? '+' : ''}{r.partial_r.toFixed(2)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <Eyebrow>Sign-flip diagnostic · pairwise vs partial r</Eyebrow>
+          <p className="mt-1 text-[10px] text-muted">Three indicators flip sign once log-GDP + log-pop partialled out.</p>
+          <div className="mt-2 h-44">
+            <ResponsiveContainer>
+              <BarChart
+                data={canon.partial_correlations.map((r) => ({
+                  feature: r.feature.replace('_', ' ').replace('pct', '%'),
+                  pairwise: r.pairwise_r,
+                  partial: r.partial_r,
+                  flip: r.flag === 'SIGN-FLIP',
+                }))}
+                layout="vertical"
+                margin={{ top: 4, right: 8, left: 4, bottom: 4 }}
+                barCategoryGap={2}
+              >
+                <XAxis
+                  type="number"
+                  domain={[-1, 1]}
+                  ticks={[-1, -0.5, 0, 0.5, 1]}
+                  tickLine={false}
+                  axisLine={{ stroke: 'rgba(10,26,42,0.18)' }}
+                  fontSize={9}
+                  tickFormatter={(v) => v.toFixed(1)}
+                />
+                <YAxis type="category" dataKey="feature" width={120} tickLine={false} axisLine={false} fontSize={9} />
+                <ReferenceLine x={0} stroke="rgba(10,26,42,0.45)" />
+                <Tooltip
+                  formatter={(v, name) => [
+                    `${Number(v) >= 0 ? '+' : ''}${Number(v).toFixed(2)}`,
+                    name === 'pairwise' ? 'Pairwise r' : 'Partial r',
+                  ]}
+                  cursor={{ fill: 'rgba(10,26,42,0.04)' }}
+                />
+                <RLegend wrapperStyle={{ fontSize: 9 }} iconType="square" verticalAlign="top" align="right" height={16} />
+                <Bar dataKey="pairwise" name="Pairwise" fill="rgba(14,124,134,0.55)" radius={[0, 2, 2, 0]} />
+                <Bar dataKey="partial" name="Partial" fill="#8B2E1F" radius={[0, 2, 2, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       </div>
 
@@ -940,20 +1020,50 @@ function Inspect04({ trace, country, titleId }: { trace: Trace; country: string;
       {row && (
         <>
           <Eyebrow tone="muted">Sectoral residual · {country}</Eyebrow>
-          <p className="mt-1 text-[11px] text-muted">% over what scale-implied STIRPAT predicts.</p>
-          <ul className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
-            {SECTORS.map((s) => {
-              const v = row[s] ?? 0;
-              return (
-                <li key={s} className="flex items-baseline justify-between border-b border-rule/50 py-0.5">
-                  <span className="text-ink">{s}</span>
-                  <span className={['font-mono tab-num', v >= 150 ? 'text-rust' : v >= 25 ? 'text-amber' : v <= -25 ? 'text-sage' : 'text-muted'].join(' ')}>
-                    {v >= 0 ? '+' : ''}{v}%
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
+          <p className="mt-1 text-[11px] text-muted">% over what scale-implied STIRPAT predicts. Red = over-emit, green = under-emit.</p>
+          <div className="mt-2 h-56">
+            <ResponsiveContainer>
+              <BarChart
+                data={SECTORS.map((s) => ({ sector: s, residual: row[s] ?? 0 }))}
+                layout="vertical"
+                margin={{ top: 4, right: 56, left: 4, bottom: 4 }}
+                barCategoryGap={3}
+              >
+                <XAxis
+                  type="number"
+                  tickLine={false}
+                  axisLine={{ stroke: 'rgba(10,26,42,0.18)' }}
+                  fontSize={9}
+                  tickFormatter={(v) => `${v >= 0 ? '+' : ''}${v}%`}
+                />
+                <YAxis type="category" dataKey="sector" width={130} tickLine={false} axisLine={false} fontSize={10} />
+                <ReferenceLine x={0} stroke="rgba(10,26,42,0.55)" />
+                <Tooltip
+                  formatter={(v) => `${Number(v) >= 0 ? '+' : ''}${Math.round(Number(v))}%`}
+                  cursor={{ fill: 'rgba(10,26,42,0.04)' }}
+                />
+                <Bar dataKey="residual" radius={[0, 2, 2, 0]}>
+                  {SECTORS.map((s) => {
+                    const v = row[s] ?? 0;
+                    const fill =
+                      v >= 300 ? '#8B2E1F'
+                      : v >= 150 ? '#B8761C'
+                      : v >= 25  ? '#C9A24C'
+                      : v <= -25 ? '#3F8A66'
+                      : '#7A8A9C';
+                    return <Cell key={s} fill={fill} />;
+                  })}
+                  <LabelList
+                    dataKey="residual"
+                    position="right"
+                    fontSize={9}
+                    fill="#0A1A2A"
+                    formatter={(v) => `${Number(v) >= 0 ? '+' : ''}${Math.round(Number(v))}%`}
+                  />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </>
       )}
     </>

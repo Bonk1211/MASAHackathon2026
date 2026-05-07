@@ -5,13 +5,11 @@ import { TopNav } from './TopNav';
 const META: Record<string, { code: string; title: string; eyebrow: string }> = {
   '/':         { code: '00', title: 'PRISM',      eyebrow: 'Home' },
 
-  // Engagement (Phase 1–6) — primary navigation.
-  '/phase1':   { code: '01', title: 'Scoping',    eyebrow: 'Engagement · Phase 1' },
-  '/phase2':   { code: '02', title: 'Risk Taxonomy', eyebrow: 'Engagement · Phase 2' },
-  '/phase3':   { code: '03', title: 'Indicator Mapping', eyebrow: 'Engagement · Phase 3' },
-  '/phase4':   { code: '04', title: 'Data Pipeline', eyebrow: 'Engagement · Phase 4' },
-  '/phase5':   { code: '05', title: 'Modeling',   eyebrow: 'Engagement · Phase 5' },
-  '/phase6':   { code: '06', title: 'Strategy',   eyebrow: 'Engagement · Phase 6' },
+  // Engagement — Discovery (phase1) replaces the former Phases 1–3.
+  '/phase1':   { code: '01', title: 'Discovery',     eyebrow: 'Engagement · Scope · Taxonomy · Indicators' },
+  '/phase4':   { code: '02', title: 'Data Pipeline', eyebrow: 'Engagement · Phase 4' },
+  '/phase5':   { code: '03', title: 'Modeling',      eyebrow: 'Engagement · Phase 5' },
+  '/phase6':   { code: '04', title: 'Strategy',      eyebrow: 'Engagement · Phase 6' },
 
   // Appendix — the 14 legacy chart-driven screens.
   '/appendix/story':      { code: 'a1',  title: 'Story',      eyebrow: 'Appendix' },

@@ -1,6 +1,9 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
+  LineChart, Line, ReferenceLine, Legend as RLegend,
+} from 'recharts';
 import { Card, Eyebrow, Hairline, StatBig } from '../components/Card';
 import { HEADLINE, PORTFOLIO, STRESS_2030 } from '../data/keyNumbers';
 import { EvidenceModal } from '../components/EvidenceModal';
@@ -199,6 +202,63 @@ export function Stress() {
           </span>
         </div>
       </section>
+
+      {/* Elasticity sensitivity — one line per scenario across ε ∈ [0.3, 1.2]. */}
+      <Card
+        title="Elasticity sensitivity · LR vs ε"
+        subtitle="Each line is one NGFS pathway. Vertical line tracks the live ε slider."
+      >
+        <div className="h-64">
+          <ResponsiveContainer>
+            <LineChart
+              data={(() => {
+                const baseLR = PORTFOLIO.baseLossRatio;
+                const baseEmis = ref.emissionsMt;
+                const out: Record<string, number>[] = [];
+                for (let eps = 0.3; eps <= 1.2 + 1e-9; eps += 0.05) {
+                  const row: Record<string, number> = { eps: Number(eps.toFixed(2)) };
+                  STRESS_2030.forEach((s) => {
+                    const pctChg = (s.emissionsMt - baseEmis) / baseEmis;
+                    row[s.scenario] = (baseLR * (1 + eps * pctChg)) * 100;
+                  });
+                  out.push(row);
+                }
+                return out;
+              })()}
+              margin={{ top: 8, right: 12, left: -8, bottom: 8 }}
+            >
+              <XAxis
+                dataKey="eps"
+                tickLine={false}
+                axisLine={{ stroke: 'rgba(10,26,42,0.18)' }}
+                fontSize={10}
+                tickFormatter={(v) => v.toFixed(2)}
+                ticks={[0.3, 0.5, 0.7, 0.9, 1.1]}
+              />
+              <YAxis tickLine={false} axisLine={false} fontSize={10} tickFormatter={(v) => `${v.toFixed(0)}%`} />
+              <Tooltip formatter={(v) => `${Number(v).toFixed(1)}%`} cursor={{ stroke: 'rgba(10,26,42,0.12)' }} />
+              <RLegend wrapperStyle={{ fontSize: 10 }} iconType="plainline" />
+              <ReferenceLine y={PORTFOLIO.baseLossRatio * 100} stroke="rgba(10,26,42,0.30)" strokeDasharray="3 3" />
+              <ReferenceLine x={Number(elasticity.toFixed(2))} stroke="rgba(10,26,42,0.55)" strokeDasharray="2 4" />
+              {STRESS_2030.map((s) => (
+                <Line
+                  key={s.scenario}
+                  type="monotone"
+                  dataKey={s.scenario}
+                  stroke={COLOURS[s.scenario]}
+                  strokeWidth={s.scenario === scenario ? 2.6 : 1.4}
+                  strokeOpacity={s.scenario === scenario ? 1 : 0.6}
+                  dot={false}
+                  activeDot={{ r: 3.5 }}
+                />
+              ))}
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+        <p className="mt-2 font-mono text-[10px] uppercase tracking-eyebrow text-muted">
+          Dashed horizontal = base LR · dashed vertical = live ε. Lines diverge as ε grows because Δemissions widen.
+        </p>
+      </Card>
 
       <Card title="2030 expected loss by scenario" subtitle={`GWP × base LR × (1 + ε × Δ emissions). ε live: ${elasticity.toFixed(2)}.`}>
         <div className="h-56">

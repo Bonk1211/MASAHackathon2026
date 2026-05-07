@@ -1,13 +1,41 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LabelList,
+  ScatterChart, Scatter, ZAxis, ReferenceLine, Legend as RLegend,
+} from 'recharts';
 import { Eyebrow, Hairline } from '../components/Card';
 import { CoverPage } from '../components/report/CoverPage';
 import { ReportSection, Subhead, P } from '../components/report/ReportSection';
 import { ReportTable } from '../components/report/ReportTable';
-import { HEADLINE, PORTFOLIO, STRESS_2030, RECOMMENDATIONS, MAPE } from '../data/keyNumbers';
+import { ReportFigure } from '../components/report/ReportFigure';
+import {
+  HEADLINE, PORTFOLIO, STRESS_2030, RECOMMENDATIONS, MAPE, FORECAST_2024,
+} from '../data/keyNumbers';
 import { POLICY_BY_ID, POLICY_REFS } from '../data/policy';
 import { LOADING } from '../data/cedent';
 import canon from '../data/key_numbers_python.json';
+
+const SCENARIO_COLOURS: Record<string, string> = {
+  'Net Zero 2050':      '#3F8A66',
+  'Mitigation':         '#0E7C86',
+  'Delayed Transition': '#B8761C',
+  'Current Policies':   '#8B2E1F',
+};
+
+const TIER_BG: Record<string, string> = {
+  A: '#3F8A66', B: '#0E7C86', C: '#B8761C', D: '#8B2E1F', E: '#0A1A2A',
+};
+
+const PRETTY_FEATURE: Record<string, string> = {
+  CO2_intensity_GDP:    'CO₂ intensity / GDP',
+  forest_area_pct:      'Forest area %',
+  energy_use_pc:        'Energy use / capita',
+  industry_pct_GDP:     'Industry % GDP',
+  agri_land_pct:        'Agri land %',
+  urban_pop_pct:        'Urban pop %',
+  renewable_energy_pct: 'Renewable energy %',
+};
 
 const STORAGE_KEY = 'prism.savedCedents.v1';
 const REPORT_ID = 'RI-2026-001';
@@ -34,6 +62,15 @@ export function Report() {
       // localStorage may be unavailable (private mode, SSR) — fall through to empty list
     }
   }, []);
+
+  const tierTally = useMemo(() => {
+    const order: Array<'A' | 'B' | 'C' | 'D' | 'E'> = ['A', 'B', 'C', 'D', 'E'];
+    return order.map((t) => ({
+      tier: t,
+      count: saved.filter((c) => c.comp === t).length,
+      loadingPct: LOADING[t].pct,
+    }));
+  }, [saved]);
 
   const today = new Date().toISOString().slice(0, 10);
   const printPdf = () => window.print();
@@ -180,6 +217,61 @@ export function Report() {
           larger insured-asset base, with insurance penetration 1.7 % of GDP and a protection gap of 85 %.
         </P>
 
+        <ReportFigure
+          caption={`Figure 2.1 · 2030 expected loss · 4 NGFS Phase V pathways · ε = ${PORTFOLIO.elasticity}`}
+          source="Source: stress_test_2030_aggregate · GWP × baseLR × (1 + ε × Δemissions)"
+          height={300}
+        >
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={STRESS_2030} margin={{ top: 24, right: 24, left: 8, bottom: 12 }}>
+              <XAxis
+                dataKey="scenario"
+                tickLine={false}
+                axisLine={{ stroke: 'rgba(10,26,42,0.2)' }}
+                fontSize={10}
+                interval={0}
+                angle={-18}
+                textAnchor="end"
+                height={62}
+              />
+              <YAxis
+                tickLine={false}
+                axisLine={false}
+                fontSize={10}
+                width={62}
+                tickFormatter={(v) => `USD ${(v / 1000).toFixed(1)}b`}
+              />
+              <Tooltip
+                formatter={(v) => [`USD ${Math.round(Number(v))}m`, 'Expected loss']}
+                cursor={{ fill: 'rgba(10,26,42,0.04)' }}
+              />
+              <ReferenceLine
+                y={PORTFOLIO.gwpUsdM * PORTFOLIO.baseLossRatio}
+                stroke="rgba(10,26,42,0.45)"
+                strokeDasharray="3 3"
+                label={{
+                  value: `Base · USD ${Math.round(PORTFOLIO.gwpUsdM * PORTFOLIO.baseLossRatio)}m`,
+                  fontSize: 9,
+                  fill: 'rgba(10,26,42,0.7)',
+                  position: 'insideTopLeft',
+                }}
+              />
+              <Bar dataKey="lossUsdM" radius={[3, 3, 0, 0]}>
+                {STRESS_2030.map((s) => (
+                  <Cell key={s.scenario} fill={SCENARIO_COLOURS[s.scenario] ?? '#0E7C86'} />
+                ))}
+                <LabelList
+                  dataKey="lr"
+                  position="top"
+                  fontSize={9}
+                  fill="#0A1A2A"
+                  formatter={(v) => `${(Number(v) * 100).toFixed(1)}% LR`}
+                />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </ReportFigure>
+
         <Subhead>Three actions for the Underwriting Committee</Subhead>
         <ol className="list-decimal space-y-2 pl-5 font-serif text-[14px] leading-relaxed text-ink print:text-[11pt]">
           {RECOMMENDATIONS.slice(0, 3).map((r) => (
@@ -233,6 +325,119 @@ export function Report() {
           ]}
         />
 
+        <ReportFigure
+          caption="Figure 3.1 · 2024 hold-out MAPE by model · lower is better"
+          source="Source: key_numbers_python.json → mape_summary · 10 SEA economies, 2024 hold-out"
+          height={240}
+        >
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={[
+                { model: 'M3a · XGBoost AR',         mape: MAPE.XGBoost,    role: 'Forecast' },
+                { model: 'M2 · Auto-ARIMA',          mape: MAPE.ARIMA,      role: 'Cross-check' },
+                { model: 'M3b · XGBoost structural', mape: MAPE.XGBoost_M3b, role: 'Driver attribution' },
+                { model: 'M1 · Log-linear',          mape: MAPE.log_linear, role: 'Baseline' },
+              ]}
+              layout="vertical"
+              margin={{ top: 8, right: 56, left: 8, bottom: 8 }}
+            >
+              <XAxis
+                type="number"
+                domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.18)]}
+                tickLine={false}
+                axisLine={{ stroke: 'rgba(10,26,42,0.18)' }}
+                fontSize={10}
+                tickFormatter={(v) => `${v}%`}
+              />
+              <YAxis
+                type="category"
+                dataKey="model"
+                tickLine={false}
+                axisLine={false}
+                fontSize={10}
+                width={150}
+              />
+              <Tooltip formatter={(v) => `${Number(v).toFixed(2)}%`} cursor={{ fill: 'rgba(10,26,42,0.04)' }} />
+              <Bar dataKey="mape" fill="#0E7C86" radius={[0, 3, 3, 0]}>
+                <LabelList dataKey="mape" position="right" fontSize={10} fill="#0A1A2A" formatter={(v) => `${Number(v).toFixed(2)}%`} />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </ReportFigure>
+
+        <ReportFigure
+          caption="Figure 3.2 · 2024 hold-out · M3a predicted vs actual (Mt CO₂e, log–log)"
+          source="Source: m3a_per_country · y = x line shows perfect calibration · all 10 economies within ±5 % MAPE"
+          height={300}
+        >
+          <ResponsiveContainer width="100%" height="100%">
+            <ScatterChart margin={{ top: 12, right: 76, left: 16, bottom: 32 }}>
+              <XAxis
+                type="number"
+                dataKey="actual"
+                name="Actual 2024"
+                scale="log"
+                domain={[8, 4000]}
+                allowDataOverflow={false}
+                tickLine={false}
+                axisLine={{ stroke: 'rgba(10,26,42,0.18)' }}
+                fontSize={10}
+                tickFormatter={(v) => `${v}`}
+                ticks={[10, 30, 100, 300, 1000, 3000]}
+                label={{ value: 'Actual GHG 2024 (Mt)', position: 'insideBottom', offset: -10, fontSize: 10, fill: 'rgba(10,26,42,0.65)' }}
+              />
+              <YAxis
+                type="number"
+                dataKey="pred"
+                name="Predicted 2024"
+                scale="log"
+                domain={[8, 4000]}
+                allowDataOverflow={false}
+                tickLine={false}
+                axisLine={{ stroke: 'rgba(10,26,42,0.18)' }}
+                fontSize={10}
+                width={48}
+                tickFormatter={(v) => `${v}`}
+                ticks={[10, 30, 100, 300, 1000, 3000]}
+                label={{ value: 'Predicted', angle: -90, position: 'insideLeft', fontSize: 10, fill: 'rgba(10,26,42,0.65)', offset: 0 }}
+              />
+              <ZAxis range={[60, 60]} />
+              <Tooltip
+                cursor={{ stroke: 'rgba(10,26,42,0.12)' }}
+                content={({ active, payload }) => {
+                  if (!active || !payload?.length) return null;
+                  const d = payload[0].payload as { country: string; actual: number; pred: number; errPct: number };
+                  return (
+                    <div className="border border-rule bg-paper px-2 py-1 text-[11px]">
+                      <div className="font-semibold text-ink">{d.country}</div>
+                      <div className="font-mono tab-num text-muted">
+                        actual {d.actual.toFixed(0)} · pred {d.pred.toFixed(0)} · err {d.errPct >= 0 ? '+' : ''}{d.errPct.toFixed(2)}%
+                      </div>
+                    </div>
+                  );
+                }}
+              />
+              <ReferenceLine
+                segment={[
+                  { x: 10, y: 10 },
+                  { x: 3000, y: 3000 },
+                ]}
+                stroke="rgba(10,26,42,0.35)"
+                strokeDasharray="3 3"
+              />
+              <Scatter data={FORECAST_2024} fill="#0E7C86">
+                <LabelList
+                  dataKey="country"
+                  position="right"
+                  fontSize={9}
+                  fill="rgba(10,26,42,0.75)"
+                  offset={8}
+                />
+              </Scatter>
+            </ScatterChart>
+          </ResponsiveContainer>
+        </ReportFigure>
+
         <Subhead number="3.2">From emissions to loss ratio</Subhead>
         <P>
           The 2030 emissions trajectories are perturbed by NGFS Phase V scenario growth deltas relative to
@@ -244,6 +449,80 @@ export function Report() {
           are partialled out — is reported as a headline diagnostic rather than a trim, per §3.2 of the
           companion report.
         </P>
+
+        <ReportFigure
+          caption="Figure 3.3 · Pairwise vs partial correlation with log-GHG · 1990–2023"
+          source="Source: partial_correlations · log-GDP and log-population partialled out for partial-r · ◆ = sign flip"
+          height={320}
+        >
+          {(() => {
+            const rows = [...canon.partial_correlations].sort(
+              (a, b) => Math.abs(b.partial_r) - Math.abs(a.partial_r),
+            );
+            const data = rows.map((r) => ({
+              feature: PRETTY_FEATURE[r.feature] ?? r.feature,
+              pairwise: r.pairwise_r,
+              partial: r.partial_r,
+              flip: r.flag === 'SIGN-FLIP',
+            }));
+            return (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={data}
+                  layout="vertical"
+                  margin={{ top: 12, right: 24, left: 8, bottom: 24 }}
+                  barCategoryGap={6}
+                >
+                  <XAxis
+                    type="number"
+                    domain={[-1, 1]}
+                    ticks={[-1, -0.5, 0, 0.5, 1]}
+                    tickLine={false}
+                    axisLine={{ stroke: 'rgba(10,26,42,0.18)' }}
+                    fontSize={10}
+                    tickFormatter={(v) => v.toFixed(1)}
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="feature"
+                    tickLine={false}
+                    axisLine={false}
+                    fontSize={10}
+                    width={150}
+                    tick={({ x, y, payload }) => {
+                      const d = data.find((dd) => dd.feature === payload.value);
+                      return (
+                        <g transform={`translate(${x},${y})`}>
+                          <text x={-6} y={0} dy={3} textAnchor="end" fontSize={10} fill="#0A1A2A">
+                            {payload.value}
+                            {d?.flip ? <tspan fill="#B8761C" fontWeight={700}>{'  ◆'}</tspan> : null}
+                          </text>
+                        </g>
+                      );
+                    }}
+                  />
+                  <ReferenceLine x={0} stroke="rgba(10,26,42,0.45)" />
+                  <Tooltip
+                    formatter={(v, name) => [
+                      `${Number(v) >= 0 ? '+' : ''}${Number(v).toFixed(2)}`,
+                      name === 'pairwise' ? 'Pairwise r' : 'Partial r',
+                    ]}
+                    cursor={{ fill: 'rgba(10,26,42,0.04)' }}
+                  />
+                  <RLegend
+                    verticalAlign="top"
+                    align="right"
+                    height={20}
+                    wrapperStyle={{ fontSize: 10, paddingBottom: 4 }}
+                    iconType="square"
+                  />
+                  <Bar dataKey="pairwise" name="Pairwise r" fill="rgba(14,124,134,0.65)" radius={[0, 2, 2, 0]} />
+                  <Bar dataKey="partial" name="Partial r" fill="#8B2E1F" radius={[0, 2, 2, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            );
+          })()}
+        </ReportFigure>
 
         <P className="mt-3">
           The full pipeline diagram, cell-level provenance, and DAG trace are walked through in the
@@ -299,6 +578,129 @@ export function Report() {
           })}
         />
 
+        <ReportFigure
+          caption="Figure 4.1 · 2030 emissions trajectory by scenario · Mt CO₂e"
+          source="Source: stress_test_2030_aggregate.emissions · Hot House anchors the upper tail"
+          height={260}
+        >
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={[...STRESS_2030].sort((a, b) => b.emissionsMt - a.emissionsMt)}
+              margin={{ top: 24, right: 24, left: 8, bottom: 12 }}
+            >
+              <XAxis
+                dataKey="scenario"
+                tickLine={false}
+                axisLine={{ stroke: 'rgba(10,26,42,0.18)' }}
+                fontSize={10}
+                interval={0}
+                angle={-18}
+                textAnchor="end"
+                height={62}
+              />
+              <YAxis
+                tickLine={false}
+                axisLine={false}
+                fontSize={10}
+                width={48}
+                tickFormatter={(v) => `${(v / 1000).toFixed(1)}k`}
+              />
+              <Tooltip formatter={(v) => `${Math.round(Number(v)).toLocaleString()} Mt`} cursor={{ fill: 'rgba(10,26,42,0.04)' }} />
+              <Bar dataKey="emissionsMt" radius={[3, 3, 0, 0]}>
+                {STRESS_2030.map((s) => (
+                  <Cell key={s.scenario} fill={SCENARIO_COLOURS[s.scenario] ?? '#0E7C86'} />
+                ))}
+                <LabelList
+                  dataKey="emissionsMt"
+                  position="top"
+                  fontSize={9}
+                  fill="#0A1A2A"
+                  formatter={(v) => `${(Number(v) / 1000).toFixed(2)}k`}
+                />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </ReportFigure>
+
+        <ReportFigure
+          caption="Figure 4.2 · Loss swing vs Hot House · USD m · negative = saving on the notional book"
+          source="Source: derived from stress_test_2030_aggregate · GWP × baseLR × ε × Δemissions"
+          height={240}
+        >
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={STRESS_2030
+                .filter((s) => s.scenario !== 'Current Policies')
+                .map((s) => ({
+                  scenario: s.scenario,
+                  swing: s.lossUsdM - hotHouseLoss,
+                }))
+                .sort((a, b) => a.swing - b.swing)}
+              layout="vertical"
+              margin={{ top: 16, right: 56, left: 56, bottom: 8 }}
+            >
+              <XAxis
+                type="number"
+                domain={[
+                  (dataMin: number) => Math.floor(dataMin * 1.18),
+                  (dataMax: number) => Math.ceil(Math.max(dataMax, 0) * 1.18 + 8),
+                ]}
+                tickLine={false}
+                axisLine={{ stroke: 'rgba(10,26,42,0.18)' }}
+                fontSize={10}
+                tickFormatter={(v) => `${v >= 0 ? '+' : ''}${v}`}
+              />
+              <YAxis
+                type="category"
+                dataKey="scenario"
+                tickLine={false}
+                axisLine={false}
+                fontSize={10}
+                width={150}
+              />
+              <ReferenceLine
+                x={0}
+                stroke="rgba(10,26,42,0.55)"
+                label={{
+                  value: 'Hot House baseline',
+                  fontSize: 9,
+                  fill: 'rgba(10,26,42,0.7)',
+                  position: 'top',
+                }}
+              />
+              <Tooltip formatter={(v) => `USD ${Number(v) >= 0 ? '+' : ''}${Math.round(Number(v))} m`} cursor={{ fill: 'rgba(10,26,42,0.04)' }} />
+              <Bar dataKey="swing" radius={[0, 3, 3, 0]}>
+                {STRESS_2030
+                  .filter((s) => s.scenario !== 'Current Policies')
+                  .sort((a, b) => (a.lossUsdM - hotHouseLoss) - (b.lossUsdM - hotHouseLoss))
+                  .map((s) => (
+                    <Cell key={s.scenario} fill={SCENARIO_COLOURS[s.scenario] ?? '#3F8A66'} />
+                  ))}
+                <LabelList
+                  dataKey="swing"
+                  fontSize={10}
+                  fill="#0A1A2A"
+                  content={(props) => {
+                    const x = Number(props.x ?? 0);
+                    const y = Number(props.y ?? 0);
+                    const width = Number(props.width ?? 0);
+                    const height = Number(props.height ?? 0);
+                    const num = Number(props.value ?? 0);
+                    const labelText = `${num >= 0 ? '+' : ''}${Math.round(num)}m`;
+                    const tx = num >= 0 ? x + width + 6 : x - 6;
+                    const anchor = num >= 0 ? 'start' : 'end';
+                    return (
+                      <text x={tx} y={y + height / 2} dy={3} fontSize={10} fill="#0A1A2A" textAnchor={anchor}>
+                        {labelText}
+                      </text>
+                    );
+                  }}
+                />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </ReportFigure>
+
         <P>
           The headline reads off the table: Hot House minus Net Zero is{' '}
           <b>USD {HEADLINE.lossSwingUsdM} m / +{HEADLINE.lrSwingPp} pp</b>. The two intermediate scenarios
@@ -318,25 +720,129 @@ export function Report() {
         </P>
 
         {saved.length > 0 ? (
-          <ReportTable
-            caption={`Table 5.1 · Saved cedent profiles · ${saved.length} record${saved.length === 1 ? '' : 's'}`}
-            source="Source: localStorage key prism.savedCedents.v1 · written from /pricing"
-            headers={['Cedent', 'Country', 'Composite tier', 'Premium loading', 'Saved']}
-            align={['left', 'left', 'center', 'right', 'right']}
-            rows={saved.map((c) => {
-              const tierData = LOADING[c.comp as keyof typeof LOADING];
-              const loadingLabel = `${c.loading >= 0 ? '+' : ''}${c.loading} %`;
-              const savedDate =
-                c.savedAt && c.savedAt.length >= 10 ? c.savedAt.slice(0, 10) : c.savedAt ?? '—';
-              return [
-                <span className="font-medium">{c.name}</span>,
-                c.country,
-                <span className="font-mono font-semibold tab-num">{c.comp}</span>,
-                <span title={tierData?.label ?? ''}>{loadingLabel}</span>,
-                <span className="font-mono text-[11px] text-muted">{savedDate}</span>,
-              ];
-            })}
-          />
+          <>
+            <ReportTable
+              caption={`Table 5.1 · Saved cedent profiles · ${saved.length} record${saved.length === 1 ? '' : 's'}`}
+              source="Source: localStorage key prism.savedCedents.v1 · written from /pricing"
+              headers={['Cedent', 'Country', 'Composite tier', 'Premium loading', 'Saved']}
+              align={['left', 'left', 'center', 'right', 'right']}
+              rows={saved.map((c) => {
+                const tierData = LOADING[c.comp as keyof typeof LOADING];
+                const loadingLabel = `${c.loading >= 0 ? '+' : ''}${c.loading} %`;
+                const savedDate =
+                  c.savedAt && c.savedAt.length >= 10 ? c.savedAt.slice(0, 10) : c.savedAt ?? '—';
+                return [
+                  <span className="font-medium">{c.name}</span>,
+                  c.country,
+                  <span className="font-mono font-semibold tab-num">{c.comp}</span>,
+                  <span title={tierData?.label ?? ''}>{loadingLabel}</span>,
+                  <span className="font-mono text-[11px] text-muted">{savedDate}</span>,
+                ];
+              })}
+            />
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <ReportFigure
+                caption="Figure 5.1 · Premium loading by saved cedent · % vs reference rate"
+                source="Source: prism.savedCedents.v1 · ordered by loading"
+                height={Math.max(220, saved.length * 32 + 80)}
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={[...saved]
+                      .sort((a, b) => a.loading - b.loading)
+                      .map((c) => ({ name: c.name, loading: c.loading, comp: c.comp }))}
+                    layout="vertical"
+                    margin={{ top: 12, right: 56, left: 56, bottom: 8 }}
+                  >
+                    <XAxis
+                      type="number"
+                      domain={[
+                        (dataMin: number) => Math.floor(Math.min(dataMin, 0) * 1.18 - 4),
+                        (dataMax: number) => Math.ceil(Math.max(dataMax, 0) * 1.18 + 4),
+                      ]}
+                      tickLine={false}
+                      axisLine={{ stroke: 'rgba(10,26,42,0.18)' }}
+                      fontSize={10}
+                      tickFormatter={(v) => `${v >= 0 ? '+' : ''}${v}%`}
+                    />
+                    <YAxis
+                      type="category"
+                      dataKey="name"
+                      tickLine={false}
+                      axisLine={false}
+                      fontSize={10}
+                      width={140}
+                    />
+                    <ReferenceLine x={0} stroke="rgba(10,26,42,0.55)" />
+                    <Tooltip
+                      formatter={(v) => `${Number(v) >= 0 ? '+' : ''}${Number(v)}%`}
+                      cursor={{ fill: 'rgba(10,26,42,0.04)' }}
+                    />
+                    <Bar dataKey="loading" radius={[0, 3, 3, 0]}>
+                      {[...saved]
+                        .sort((a, b) => a.loading - b.loading)
+                        .map((c) => (
+                          <Cell key={c.name} fill={TIER_BG[c.comp] ?? '#0E7C86'} />
+                        ))}
+                      <LabelList
+                        dataKey="loading"
+                        content={(props) => {
+                          const x = Number(props.x ?? 0);
+                          const y = Number(props.y ?? 0);
+                          const width = Number(props.width ?? 0);
+                          const height = Number(props.height ?? 0);
+                          const num = Number(props.value ?? 0);
+                          const labelText = `${num >= 0 ? '+' : ''}${num}%`;
+                          const tx = num >= 0 ? x + width + 6 : x - 6;
+                          const anchor = num >= 0 ? 'start' : 'end';
+                          return (
+                            <text x={tx} y={y + height / 2} dy={3} fontSize={10} fill="#0A1A2A" textAnchor={anchor}>
+                              {labelText}
+                            </text>
+                          );
+                        }}
+                      />
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </ReportFigure>
+
+              <ReportFigure
+                caption="Figure 5.2 · Composite-tier distribution"
+                source="Source: tier mode of country, sector, adaptive · count of saved profiles per tier"
+                height={260}
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={tierTally} margin={{ top: 24, right: 24, left: 8, bottom: 16 }}>
+                    <XAxis dataKey="tier" tickLine={false} axisLine={false} fontSize={11} fontWeight={600} />
+                    <YAxis tickLine={false} axisLine={false} fontSize={10} width={28} allowDecimals={false} />
+                    <Tooltip
+                      formatter={(v, _n, p) => {
+                        const tier = (p as { payload?: { tier?: string; loadingPct?: number } })?.payload;
+                        return [
+                          `${Number(v)} · loading ${tier?.loadingPct ?? 0 >= 0 ? '+' : ''}${tier?.loadingPct ?? 0}%`,
+                          `Tier ${tier?.tier}`,
+                        ];
+                      }}
+                      cursor={{ fill: 'rgba(10,26,42,0.04)' }}
+                    />
+                    <Bar dataKey="count" radius={[3, 3, 0, 0]}>
+                      {tierTally.map((t) => (
+                        <Cell key={t.tier} fill={TIER_BG[t.tier]} fillOpacity={t.count > 0 ? 1 : 0.18} />
+                      ))}
+                      <LabelList
+                        dataKey="count"
+                        position="top"
+                        fontSize={10}
+                        formatter={(v) => (Number(v) === 0 ? '' : String(v))}
+                      />
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </ReportFigure>
+            </div>
+          </>
         ) : (
           <div className="my-4 border border-dashed border-rule bg-bone/30 px-5 py-6 text-center print:bg-transparent">
             <p className="font-mono text-[10px] uppercase tracking-eyebrow text-muted">
@@ -402,6 +908,8 @@ export function Report() {
           The first three were summarised in the Executive Summary; the fourth — the +8 % capital buffer —
           is the regulatory hook for the BNM CRST submission.
         </P>
+
+        <RecommendationTimeline />
 
         <ol className="mt-2 space-y-5 list-decimal pl-5 font-serif text-[14px] leading-relaxed text-ink print:text-[11pt]">
           {RECOMMENDATIONS.map((r) => {
@@ -568,6 +1076,129 @@ export function Report() {
         </p>
       </ReportSection>
     </article>
+  );
+}
+
+// Quarter math: 2026 Q2 (kick-off) → 2028 Q4 (8 quarters of horizon).
+// Each rec maps to a (start, end) quarter index and a hue.
+const TIMELINE_START_Q = 0;   // 2026 Q2
+const TIMELINE_END_Q   = 11;  // 2029 Q1 (exclusive label cap)
+
+const REC_TIMELINE: Record<string, { startQ: number; endQ: number; tone: string; phase: string }> = {
+  // Q index from 2026 Q2 = 0 → 2026 Q3 = 1 → 2026 Q4 = 2 → 2027 Q1 = 3 → 2027 Q3 = 5 → ...
+  'parametric':     { startQ: 1, endQ: 5,  tone: '#0E7C86', phase: 'Build · bind Q3 2027' },
+  'esg-screen':     { startQ: 0, endQ: 2,  tone: '#3F8A66', phase: 'Underwriting · 2026 renewals' },
+  'cat-bond':       { startQ: 2, endQ: 4,  tone: '#B8761C', phase: 'Capital markets · issue Q2 2027' },
+  'capital-buffer': { startQ: 0, endQ: 11, tone: '#8B2E1F', phase: 'Annual ICAAP · standing' },
+};
+
+function quarterLabel(q: number): string {
+  const yearOffset = Math.floor((q + 1) / 4);
+  const quarterInYear = ((q + 1) % 4) + 1; // q=0 → Q2 2026, q=1 → Q3 2026 ...
+  return `${quarterInYear}Q${(2026 + yearOffset).toString().slice(-2)}`;
+}
+
+function RecommendationTimeline() {
+  const totalQ = TIMELINE_END_Q - TIMELINE_START_Q + 1;
+  const ticks = [0, 2, 4, 6, 8, 10];
+  const ROW_H = 44;
+  const rows = RECOMMENDATIONS.filter((r) => REC_TIMELINE[r.id]);
+  return (
+    <ReportFigure
+      caption="Figure 7.1 · Action timeline · 2026 Q2 → 2029 Q1"
+      source="Source: keyNumbers.RECOMMENDATIONS · milestones from §7 narrative"
+      height={rows.length * ROW_H + 56}
+    >
+      <div className="grid h-full grid-cols-[44px_1fr] gap-2">
+        {/* Ticker column */}
+        <div className="relative h-full">
+          {rows.map((r, i) => (
+            <span
+              key={r.id}
+              className="absolute left-0 font-mono text-[10px] uppercase tracking-eyebrow text-muted"
+              style={{ top: `${i * ROW_H + 6}px` }}
+            >
+              {r.ticker}
+            </span>
+          ))}
+        </div>
+
+        {/* Track column */}
+        <div className="relative h-full">
+          {/* gridlines */}
+          {ticks.map((t) => (
+            <div
+              key={t}
+              className="absolute top-0 w-px bg-rule/60 print:bg-black/20"
+              style={{
+                left: `${(t / (totalQ - 1)) * 100}%`,
+                bottom: 24,
+              }}
+            />
+          ))}
+          {/* today marker (kick-off) */}
+          <div className="absolute top-0 w-[1.5px] bg-ink/70" style={{ left: '0%', bottom: 24 }} />
+
+          {/* bars */}
+          {rows.map((r, i) => {
+            const tl = REC_TIMELINE[r.id];
+            const leftPct = (tl.startQ / (totalQ - 1)) * 100;
+            const widthPct = ((tl.endQ - tl.startQ) / (totalQ - 1)) * 100;
+            return (
+              <div
+                key={r.id}
+                className="absolute"
+                style={{
+                  top: `${i * ROW_H + 4}px`,
+                  left: `${leftPct}%`,
+                  width: `${widthPct}%`,
+                  height: 22,
+                }}
+                title={`${r.title} · ${tl.phase}`}
+              >
+                <div
+                  className="h-full w-full rounded-sm"
+                  style={{ background: tl.tone }}
+                />
+                <span
+                  className="absolute inset-y-0 left-2 right-2 flex items-center text-[10px] font-semibold text-paper"
+                  style={{ overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}
+                >
+                  {r.title}
+                </span>
+                <span
+                  className="absolute left-0 text-[9px] text-muted"
+                  style={{ top: 24 }}
+                >
+                  {tl.phase}
+                </span>
+              </div>
+            );
+          })}
+
+          {/* x-axis ticks */}
+          <div className="absolute left-0 right-0 bottom-0 h-6 border-t border-rule">
+            {ticks.map((t, idx) => {
+              const isFirst = idx === 0;
+              const isLast = idx === ticks.length - 1;
+              const transform = isFirst ? 'none' : isLast ? 'translateX(-100%)' : 'translateX(-50%)';
+              return (
+                <div
+                  key={t}
+                  className="absolute top-1 font-mono text-[9px] text-muted"
+                  style={{
+                    left: `${(t / (totalQ - 1)) * 100}%`,
+                    transform,
+                  }}
+                >
+                  {quarterLabel(t)}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </ReportFigure>
   );
 }
 

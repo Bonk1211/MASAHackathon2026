@@ -46,23 +46,26 @@ const AXIS_LABEL: Record<ScopingAxis, string> = {
 // always gets relevant prompts. Phrasings are TESTED against ilmu-nemo-nano:
 // each chip pins its axis at confidence 0.9 reliably (3/3 cold runs). Do not
 // edit without re-testing — the model is sensitive to enum casing and
-// abbreviation ("UW" fails, "underwriting" works; "TCFD only" fails,
+// abbreviation (e.g. "UW" fails, "underwriting" works; "TCFD only" fails,
 // "TCFD and ISSB_S2" works).
+//
+// Three-chip set per axis: the canonical SEA-typhoon demo persona first, a
+// diversified middle option, then a contrasting profile for variety.
 const SUGGESTIONS_BY_AXIS: Record<ScopingAxis, string[]> = {
   line_of_business: [
-    '70% property cat, 20% agriculture, 10% specialty',
-    '50% property cat, 25% agriculture, 25% specialty',
-    '80% property cat, 15% specialty, 5% casualty',
+    'Mostly property cat — 70% property cat, 20% agriculture, 10% specialty',
+    'Diversified — 50% property cat, 25% agriculture, 25% specialty',
+    'Cat-heavy with casualty tail — 80% property cat, 15% specialty, 5% casualty',
   ],
   geography: [
-    'Vietnam, Philippines, Indonesia',
-    'Vietnam and Philippines',
-    'Indonesia, Thailand, Malaysia',
+    'SEA core — Vietnam, Philippines, Indonesia',
+    'Mekong only — Vietnam and Philippines',
+    'Asean-5 — Indonesia, Thailand, Malaysia',
   ],
   time_horizon: [
-    '1-year underwriting, 30-year tail',
-    '1 year underwriting and 30 year liability tail',
-    '1-year UW horizon, 30-year life horizon',
+    '1-year underwriting horizon, 30-year liability tail',
+    '3-year underwriting horizon, 20-year liability tail',
+    '1-year underwriting horizon, 50-year liability tail',
   ],
   frameworks: [
     'TCFD and ISSB_S2',
@@ -70,13 +73,15 @@ const SUGGESTIONS_BY_AXIS: Record<ScopingAxis, string[]> = {
     'ISSB_S2 and Internal_Capital',
   ],
   disclosures: [
-    'Public TCFD disclosure annually',
-    'We publish TCFD and ISSB_S2',
+    'Public TCFD and ISSB_S2 annual disclosure',
+    'Regulatory_Stress_Test only — confidential',
     'Internal_Only',
   ],
 };
 
-// Same first-axis chips used as openers (LOB is always axis #1).
+// Opener chips on a fresh chat. First option = the canonical demo persona so
+// judges can hit one button and watch ILMU pin LOB instantly; the other two
+// give variety. Same phrasings reuse the LOB axis chip set.
 const OPENING_SUGGESTIONS = SUGGESTIONS_BY_AXIS.line_of_business;
 
 function formatAxisValue(axis: ScopingAxis, value: unknown): string {
@@ -138,7 +143,19 @@ function relativeTime(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-export function ChatThread() {
+export function ChatThread({
+  continueTo = '/phase2',
+  continueLabel = 'Continue to Phase 2 →',
+  showContinue = true,
+  extraBubbles = null,
+  composerHint = null,
+}: {
+  continueTo?: string | null;
+  continueLabel?: string;
+  showContinue?: boolean;
+  extraBubbles?: React.ReactNode;
+  composerHint?: React.ReactNode;
+} = {}) {
   const nav = useNavigate();
   const { profile, transcript, sessionId, setFullProfile, appendTurn, reset, switchSession } =
     useScoping();
@@ -175,7 +192,7 @@ export function ChatThread() {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [transcript.length, loading]);
+  }, [transcript.length, loading, extraBubbles]);
 
   const pinned = pinnedAxes(profile);
   const conf = profile.confidence ?? {};
@@ -370,12 +387,22 @@ export function ChatThread() {
           {isEmpty ? (
             <div className="flex h-full flex-col items-center justify-center text-center">
               <p className="display text-[28px] leading-[1.05] text-ink lg:text-[40px]">
-                Hi — what can I help
-                <span className="italic"> you scope</span>?
+                Hi — I'm <span className="italic">ILMU</span>.
               </p>
-              <p className="mt-3 max-w-md font-serif text-[14px] italic leading-relaxed text-muted">
-                Tell me about your reinsurance book — line of business, geography, time
-                horizon, frameworks, disclosures. I'll pin each axis as we go.
+              <p className="mt-2 max-w-md font-serif text-[15px] italic leading-relaxed text-ink lg:text-[16px]">
+                Five questions, then I'll propose the risk taxonomy and the indicator panel
+                — all in this chat.
+              </p>
+              <ul className="mt-5 grid grid-cols-1 gap-1 text-left font-mono text-[10px] uppercase tracking-eyebrow text-muted">
+                <li><span className="text-sea mr-2">01</span> Line of business</li>
+                <li><span className="text-sea mr-2">02</span> Geography</li>
+                <li><span className="text-sea mr-2">03</span> Time horizon</li>
+                <li><span className="text-sea mr-2">04</span> Frameworks</li>
+                <li><span className="text-sea mr-2">05</span> Disclosures</li>
+              </ul>
+              <p className="mt-5 max-w-md text-[12px] leading-snug text-muted">
+                Pick a chip below to start, or just type. The canonical demo persona is the
+                first chip — one tap pins LOB.
               </p>
             </div>
           ) : (
@@ -410,6 +437,12 @@ export function ChatThread() {
             </ul>
           )}
 
+          {/* Wizard / step bubbles injected by the parent screen, rendered inline
+              with the chat transcript so flow feels continuous. */}
+          {extraBubbles && (
+            <div className="mx-auto mt-5 max-w-2xl space-y-5">{extraBubbles}</div>
+          )}
+
           {err && (
             <p
               role="alert"
@@ -420,8 +453,15 @@ export function ChatThread() {
           )}
         </div>
 
-        {/* Composer + predicted-input chips */}
+        {/* Composer + predicted-input chips. composerHint replaces the
+            suggestion strip when the parent has taken the wheel (e.g., wizard
+            steps await user action inside a bubble). */}
         <div className="border-t border-rule px-4 py-3">
+          {composerHint && (
+            <p className="mb-2 font-mono text-[10px] uppercase tracking-eyebrow text-sea">
+              {composerHint}
+            </p>
+          )}
           {suggestions.length > 0 && (
             <div className="mb-2 flex flex-wrap gap-1.5">
               {suggestions.map((s) => (
@@ -520,16 +560,24 @@ export function ChatThread() {
 
         <Hairline className="mt-4" />
 
-        {profile.complete ? (
-          <button
-            onClick={() => nav('/phase2')}
-            className="mt-3 w-full border border-ink bg-ink px-3 py-2 text-[12px] font-semibold text-paper transition hover:bg-paper hover:text-ink"
-          >
-            Continue to Phase 2 →
-          </button>
+        {showContinue && continueTo ? (
+          profile.complete ? (
+            <button
+              onClick={() => nav(continueTo)}
+              className="mt-3 w-full border border-ink bg-ink px-3 py-2 text-[12px] font-semibold text-paper transition hover:bg-paper hover:text-ink"
+            >
+              {continueLabel}
+            </button>
+          ) : (
+            <p className="mt-3 text-[11px] leading-snug text-muted">
+              All five axes pin at confidence ≥ 70 % to unlock the next step.
+            </p>
+          )
         ) : (
           <p className="mt-3 text-[11px] leading-snug text-muted">
-            All five axes pin at confidence ≥ 70 % to unlock Phase 2.
+            {profile.complete
+              ? 'All axes pinned · taxonomy + indicators auto-derived below.'
+              : 'Pin the five axes to lock taxonomy + indicators below.'}
           </p>
         )}
       </aside>

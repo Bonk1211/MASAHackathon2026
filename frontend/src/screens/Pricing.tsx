@@ -7,6 +7,10 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
+  LineChart, Line, ReferenceLine, ReferenceDot,
+} from 'recharts';
 import { Eyebrow, Hairline, StatBig } from '../components/Card';
 import { Ticker } from '../components/Ticker';
 import { InputCard } from '../components/pricing/InputCard';
@@ -130,6 +134,38 @@ export function Pricing() {
   const mixSum = useMemo(() => SECTORS.reduce((a, k) => a + mix[k], 0), [mix]);
   const mixNormalised = Math.abs(mixSum - 100) < 0.5;
 
+  // Live scenario fan — what the four NGFS pathways produce at current ε.
+  const scenarioFan = useMemo(() => {
+    const ref = STRESS_2030.find((s) => s.scenario === 'Current Policies');
+    return STRESS_2030.map((s) => {
+      const pctChg = ref ? (s.emissionsMt - ref.emissionsMt) / ref.emissionsMt : 0;
+      const lr = baseLr * (1 + elasticity * pctChg);
+      return {
+        scenario: s.scenario,
+        family: s.family,
+        lr,
+        lrPct: lr * 100,
+        lossUsdM: gwp * lr,
+      };
+    });
+  }, [baseLr, elasticity, gwp]);
+
+  // Elasticity sensitivity curve for the selected scenario.
+  const elasticityCurve = useMemo(() => {
+    const ref = STRESS_2030.find((s) => s.scenario === 'Current Policies');
+    const sel = STRESS_2030.find((s) => s.scenario === scenario);
+    if (!ref || !sel) return [];
+    const pctChg = (sel.emissionsMt - ref.emissionsMt) / ref.emissionsMt;
+    const points: { eps: number; lr: number; lrPct: number; lossUsdM: number }[] = [];
+    for (let eps = 0.3; eps <= 1.2 + 1e-9; eps += 0.05) {
+      const lr = baseLr * (1 + eps * pctChg);
+      points.push({ eps: Number(eps.toFixed(2)), lr, lrPct: lr * 100, lossUsdM: gwp * lr });
+    }
+    return points;
+  }, [baseLr, gwp, scenario]);
+
+  const liveLrPct = preview.lr * 100;
+
   const applyPreset = (p: CedentPreset) => {
     setPreset(p);
     setCountry(p.country);
@@ -235,6 +271,132 @@ export function Pricing() {
             sub={`Capital +${preview.capitalAddPct}%`}
             accent={preview.swingUsdM >= 0 ? 'sage' : 'rust'}
           />
+        </div>
+      </section>
+
+      {/* Charts row — scenario fan + elasticity sensitivity. The actuarial diagrams. */}
+      <section className="grid gap-3 lg:grid-cols-2">
+        <div className="border border-rule bg-paper">
+          <div className="flex items-baseline justify-between border-b border-rule px-4 py-2">
+            <Eyebrow>Loss-ratio fan · 4 NGFS pathways</Eyebrow>
+            <span className="font-mono text-[10px] uppercase tracking-eyebrow text-muted">
+              ε {elasticity.toFixed(2)}
+            </span>
+          </div>
+          <div className="h-56 px-2 pt-2 pb-1">
+            <ResponsiveContainer>
+              <BarChart data={scenarioFan} margin={{ top: 6, right: 18, left: -12, bottom: 28 }}>
+                <XAxis
+                  dataKey="scenario"
+                  tickLine={false}
+                  axisLine={false}
+                  fontSize={9}
+                  interval={0}
+                  angle={-15}
+                  textAnchor="end"
+                  height={50}
+                />
+                <YAxis
+                  tickLine={false}
+                  axisLine={false}
+                  fontSize={10}
+                  tickFormatter={(v) => `${v.toFixed(0)}%`}
+                />
+                <Tooltip
+                  formatter={(v, name) =>
+                    String(name) === 'lrPct' ? [`${Number(v).toFixed(1)}%`, 'Loss ratio'] : String(v)
+                  }
+                  cursor={{ fill: 'rgba(10,26,42,0.04)' }}
+                />
+                <ReferenceLine
+                  y={baseLr * 100}
+                  stroke="rgba(10,26,42,0.45)"
+                  strokeDasharray="3 3"
+                  label={{ value: `Base ${(baseLr * 100).toFixed(0)}%`, fontSize: 9, fill: 'rgba(10,26,42,0.7)', position: 'insideTopLeft' }}
+                />
+                <Bar dataKey="lrPct" radius={[2, 2, 0, 0]}>
+                  {scenarioFan.map((s) => (
+                    <Cell
+                      key={s.scenario}
+                      fill={SCENARIO_COLOURS[s.scenario]}
+                      fillOpacity={s.scenario === scenario ? 1 : 0.45}
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <p className="border-t border-rule px-4 py-2 font-mono text-[10px] uppercase tracking-eyebrow text-muted">
+            Selected scenario solid · others dimmed. Dashed line = base LR.
+          </p>
+        </div>
+
+        <div className="border border-rule bg-paper">
+          <div className="flex items-baseline justify-between border-b border-rule px-4 py-2">
+            <Eyebrow>Elasticity sensitivity · {scenario}</Eyebrow>
+            <span className="font-mono text-[10px] uppercase tracking-eyebrow text-muted">
+              LR @ ε {elasticity.toFixed(2)} · {liveLrPct.toFixed(1)}%
+            </span>
+          </div>
+          <div className="h-56 px-2 pt-2 pb-1">
+            <ResponsiveContainer>
+              <LineChart data={elasticityCurve} margin={{ top: 8, right: 18, left: -12, bottom: 8 }}>
+                <XAxis
+                  dataKey="eps"
+                  tickLine={false}
+                  axisLine={{ stroke: 'rgba(10,26,42,0.18)' }}
+                  fontSize={10}
+                  tickFormatter={(v) => v.toFixed(2)}
+                  ticks={[0.3, 0.5, 0.7, 0.9, 1.1]}
+                />
+                <YAxis
+                  tickLine={false}
+                  axisLine={false}
+                  fontSize={10}
+                  domain={['auto', 'auto']}
+                  tickFormatter={(v) => `${v.toFixed(0)}%`}
+                />
+                <Tooltip
+                  formatter={(v, name) =>
+                    String(name) === 'lrPct'
+                      ? [`${Number(v).toFixed(1)}%`, 'Loss ratio']
+                      : [Number(v).toFixed(2), 'ε']
+                  }
+                  cursor={{ stroke: 'rgba(10,26,42,0.12)' }}
+                />
+                <ReferenceLine
+                  y={baseLr * 100}
+                  stroke="rgba(10,26,42,0.30)"
+                  strokeDasharray="3 3"
+                  label={{ value: 'Base', fontSize: 9, fill: 'rgba(10,26,42,0.6)', position: 'insideRight' }}
+                />
+                <ReferenceLine
+                  x={Number(elasticity.toFixed(2))}
+                  stroke={SCENARIO_COLOURS[scenario]}
+                  strokeDasharray="2 4"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="lrPct"
+                  stroke={SCENARIO_COLOURS[scenario]}
+                  strokeWidth={2.4}
+                  dot={false}
+                  activeDot={{ r: 4 }}
+                />
+                <ReferenceDot
+                  x={Number(elasticity.toFixed(2))}
+                  y={liveLrPct}
+                  r={4.5}
+                  fill={SCENARIO_COLOURS[scenario]}
+                  stroke="#FAF7EE"
+                  strokeWidth={2}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+          <p className="border-t border-rule px-4 py-2 font-mono text-[10px] uppercase tracking-eyebrow text-muted">
+            Slope = baseLR × Δemissions vs Hot House. Drag ε on card 04 — dot tracks.
+          </p>
         </div>
       </section>
 

@@ -6,17 +6,15 @@ import { useFocusTrap } from '../lib/useFocusTrap';
 
 type Tab = { to: string; code: string; label: string; tag?: string };
 
-// PRIMARY = the 6-phase consulting engagement + the executive memo it
-// produces from saved cedent simulations.
+// PRIMARY = the consulting engagement, condensed. Discovery (phase1) merges
+// the former Scoping + Taxonomy + Indicators tabs into one ILMU-driven step.
 const PRIMARY: Tab[] = [
   { to: '/',                code: '00', label: 'Home' },
-  { to: '/phase1',          code: '01', label: 'Scoping',    tag: 'Phase 1' },
-  { to: '/phase2',          code: '02', label: 'Taxonomy',   tag: 'Phase 2' },
-  { to: '/phase3',          code: '03', label: 'Indicators', tag: 'Phase 3' },
-  { to: '/phase4',          code: '04', label: 'Pipeline',   tag: 'Phase 4' },
-  { to: '/phase5',          code: '05', label: 'Modeling',   tag: 'Phase 5' },
-  { to: '/phase6',          code: '06', label: 'Strategy',   tag: 'Phase 6' },
-  { to: '/appendix/report', code: '07', label: 'Report',     tag: 'Memo' },
+  { to: '/phase1',          code: '01', label: 'Discovery',  tag: 'Scope · taxonomy · indicators' },
+  { to: '/phase4',          code: '02', label: 'Pipeline',   tag: 'Phase 4' },
+  { to: '/phase5',          code: '03', label: 'Modeling',   tag: 'Phase 5' },
+  { to: '/phase6',          code: '04', label: 'Strategy',   tag: 'Phase 6' },
+  { to: '/appendix/report', code: '05', label: 'Report',     tag: 'Memo' },
 ];
 
 // APPENDIX hidden from primary nav. Routes still resolve for deep links and

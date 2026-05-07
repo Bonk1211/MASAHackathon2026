@@ -1,4 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
+import {
+  PieChart, Pie, Cell as RCell,
+  BarChart, Bar, XAxis, YAxis, Tooltip, ReferenceLine,
+  ResponsiveContainer,
+} from 'recharts';
 import { AgentPanel } from '../components/AgentPanel';
 import { Card, Eyebrow, Hairline, StatBig } from '../components/Card';
 import { Ticker } from '../components/Ticker';
@@ -14,6 +19,19 @@ type Mix = Record<(typeof SECTORS)[number], number>;
 
 const TIER_BG: Record<string, string> = {
   A: '#3F8A66', B: '#0E7C86', C: '#B8761C', D: '#8B2E1F', E: '#0A1A2A',
+};
+
+const TIERS: ReadonlyArray<'A' | 'B' | 'C' | 'D' | 'E'> = ['A', 'B', 'C', 'D', 'E'];
+
+const SECTOR_HUE: Record<string, string> = {
+  'Power Industry':         '#8B2E1F',
+  'Industrial Combustion':  '#B8761C',
+  'Industrial Processes':   '#0E7C86',
+  'Transport':              '#3F8A66',
+  'Agriculture':            '#5C7C3D',
+  'Buildings':              '#4F6D8A',
+  'Waste':                  '#7A6E55',
+  'Fugitive Energy':        '#0A1A2A',
 };
 
 const STORAGE_KEY = 'prism.savedCedents.v1';
@@ -41,6 +59,25 @@ export function Cedent() {
       if (raw) setSaved(JSON.parse(raw));
     } catch (_) { /* localStorage unavailable */ }
   }, []);
+
+  const mixDonut = useMemo(
+    () => SECTORS.map((s) => ({ name: s, value: mix[s] })).filter((d) => d.value > 0.5),
+    [mix],
+  );
+
+  const sectorResidualData = useMemo(() => {
+    const residuals = SECTOR_RESIDUAL_PCT[country] ?? {};
+    return SECTORS.map((s) => {
+      const r = residuals[s] ?? 0;
+      const w = mix[s] / 100;
+      return {
+        sector: s,
+        residual: r,
+        contribution: r * w,
+        weight: mix[s],
+      };
+    });
+  }, [country, mix]);
 
   const result = useMemo(() => {
     const ct = COUNTRY_TIER[country].tier;
@@ -231,6 +268,63 @@ export function Cedent() {
         </p>
       </Card>
 
+      {/* Visual diagnostics — donut + per-sector residual contribution */}
+      <Card title="Mix donut · sector residual · weighted contribution" subtitle="Left: GWP retention by sector. Right: per-sector STIRPAT residual × mix weight = expected loss-ratio drag.">
+        <div className="grid gap-4 lg:grid-cols-[200px_1fr] lg:items-center">
+          <div className="h-44">
+            <ResponsiveContainer>
+              <PieChart>
+                <Pie data={mixDonut} dataKey="value" innerRadius="55%" outerRadius="92%" strokeWidth={0.5} stroke="#FAF7EE">
+                  {mixDonut.map((d) => (
+                    <RCell key={d.name} fill={SECTOR_HUE[d.name]} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(v, _n, p) => [`${Number(v).toFixed(0)}%`, (p as { payload?: { name?: string } })?.payload?.name ?? '']} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="h-56 lg:h-64">
+            <ResponsiveContainer>
+              <BarChart data={sectorResidualData} layout="vertical" margin={{ top: 4, right: 30, left: 12, bottom: 4 }}>
+                <XAxis
+                  type="number"
+                  tickLine={false}
+                  axisLine={{ stroke: 'rgba(10,26,42,0.18)' }}
+                  fontSize={10}
+                  tickFormatter={(v) => `${v >= 0 ? '+' : ''}${v}%`}
+                />
+                <YAxis type="category" dataKey="sector" tickLine={false} axisLine={false} fontSize={10} width={120} />
+                <ReferenceLine x={0} stroke="rgba(10,26,42,0.45)" />
+                <Tooltip
+                  formatter={(v, _n, p) => {
+                    const num = Number(v);
+                    const weight = (p as { payload?: { weight?: number } })?.payload?.weight ?? 0;
+                    return [
+                      `${num >= 0 ? '+' : ''}${num.toFixed(0)}% · weight ${weight.toFixed(0)}%`,
+                      'Residual',
+                    ];
+                  }}
+                  cursor={{ fill: 'rgba(10,26,42,0.04)' }}
+                />
+                <Bar dataKey="residual" radius={[0, 2, 2, 0]}>
+                  {sectorResidualData.map((d) => (
+                    <RCell
+                      key={d.sector}
+                      fill={SECTOR_HUE[d.sector]}
+                      fillOpacity={0.30 + 0.70 * Math.min(1, d.weight / 50)}
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+        <Hairline className="mt-3" />
+        <p className="mt-3 text-[11px] text-muted">
+          Bar opacity scales with mix weight — heavier exposure → fuller colour. Power, Industrial Combustion, Fugitive Energy carry the SEA tail.
+        </p>
+      </Card>
+
       {/* NDC toggle */}
       <Card title="NDC alignment" tone="sand">
         <label className="flex min-h-[44px] cursor-pointer items-center justify-between gap-4">
@@ -266,10 +360,15 @@ export function Cedent() {
                 Mode of (country, sector, adaptive). Sector D/E forces composite ≥ D.
               </p>
             </div>
-            <div className="flex items-center justify-between border-t border-paper/15 pt-3">
-              <Tier label="Country" t={result.ct} />
-              <Tier label="Sector" t={result.st} />
-              <Tier label="Adaptive" t={result.at} />
+            <div className="border-t border-paper/15 pt-3">
+              <TierLadder
+                rows={[
+                  { label: 'Country',   t: result.ct },
+                  { label: 'Sector',    t: result.st },
+                  { label: 'Adaptive',  t: result.at },
+                  { label: 'Composite', t: result.comp, bold: true },
+                ]}
+              />
             </div>
           </div>
         </div>
@@ -327,16 +426,54 @@ export function Cedent() {
   );
 }
 
-function Tier({ label, t }: { label: string; t: string }) {
+function TierLadder({
+  rows,
+}: { rows: { label: string; t: 'A' | 'B' | 'C' | 'D' | 'E'; bold?: boolean }[] }) {
   return (
-    <div className="flex flex-col items-center gap-1">
-      <span className="font-mono text-[9px] uppercase tracking-eyebrow text-paper/55">{label}</span>
-      <span
-        className="grid h-7 w-9 place-items-center text-[14px] font-bold text-paper"
-        style={{ background: TIER_BG[t] }}
-      >
-        {t}
-      </span>
+    <div className="space-y-1.5">
+      <div className="grid grid-cols-[64px_1fr] items-center gap-3">
+        <span />
+        <div className="grid grid-cols-5 gap-px">
+          {TIERS.map((t) => (
+            <div
+              key={t}
+              className="grid h-3 place-items-center text-[8px] font-mono text-paper/70"
+              style={{ background: TIER_BG[t], opacity: 0.55 }}
+            >
+              {t}
+            </div>
+          ))}
+        </div>
+      </div>
+      {rows.map((r) => (
+        <div key={r.label} className="grid grid-cols-[64px_1fr] items-center gap-3">
+          <span className={[
+            'font-mono text-[9px] uppercase tracking-eyebrow',
+            r.bold ? 'text-paper font-bold' : 'text-paper/55',
+          ].join(' ')}>
+            {r.label}
+          </span>
+          <div className="relative grid h-5 grid-cols-5 gap-px">
+            {TIERS.map((t) => (
+              <div
+                key={t}
+                className="h-full"
+                style={{
+                  background: t === r.t ? TIER_BG[t] : 'rgba(250,247,238,0.06)',
+                  outline: t === r.t && r.bold ? '1.5px solid #FAF7EE' : undefined,
+                  outlineOffset: t === r.t && r.bold ? -2 : undefined,
+                }}
+              >
+                {t === r.t && (
+                  <span className="grid h-full place-items-center text-[11px] font-bold text-paper">
+                    {t}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
