@@ -10,6 +10,97 @@ import { getMeta } from '../lib/pipeline';
 
 type FeedStatus = 'live' | 'stub' | 'vintage';
 
+function useReducedMotion() {
+  const [reduced, setReduced] = useState(false);
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const m = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setReduced(m.matches);
+    const onChange = () => setReduced(m.matches);
+    m.addEventListener('change', onChange);
+    return () => m.removeEventListener('change', onChange);
+  }, []);
+  return reduced;
+}
+
+// Looping typewriter for the hero's "South-East Asia" word. Types → holds →
+// erases → pauses → repeats. Caret blinks at the tail. Respects
+// prefers-reduced-motion (renders the full word, no animation).
+type LoopPhase = 'type' | 'hold' | 'erase' | 'gap';
+
+function LoopWord({
+  word,
+  italic = false,
+  typeMs = 90,
+  eraseMs = 45,
+  holdMs = 1800,
+  gapMs = 550,
+}: {
+  word: string;
+  italic?: boolean;
+  typeMs?: number;
+  eraseMs?: number;
+  holdMs?: number;
+  gapMs?: number;
+}) {
+  const reduced = useReducedMotion();
+  const [chars, setChars] = useState(reduced ? word.length : 0);
+  const [phase, setPhase] = useState<LoopPhase>(reduced ? 'hold' : 'type');
+
+  useEffect(() => {
+    if (reduced) return;
+    let id: number | null = null;
+    if (phase === 'type') {
+      id = window.setInterval(() => {
+        setChars((n) => {
+          if (n >= word.length) {
+            if (id !== null) window.clearInterval(id);
+            setPhase('hold');
+            return n;
+          }
+          return n + 1;
+        });
+      }, typeMs);
+    } else if (phase === 'erase') {
+      id = window.setInterval(() => {
+        setChars((n) => {
+          if (n <= 0) {
+            if (id !== null) window.clearInterval(id);
+            setPhase('gap');
+            return 0;
+          }
+          return n - 1;
+        });
+      }, eraseMs);
+    } else if (phase === 'hold') {
+      id = window.setTimeout(() => setPhase('erase'), holdMs);
+    } else if (phase === 'gap') {
+      id = window.setTimeout(() => setPhase('type'), gapMs);
+    }
+    return () => {
+      if (id === null) return;
+      window.clearInterval(id);
+      window.clearTimeout(id);
+    };
+  }, [phase, reduced, word.length, typeMs, eraseMs, holdMs, gapMs]);
+
+  const slice = word.slice(0, chars);
+  const full = chars === word.length;
+
+  return (
+    <>
+      <span className={italic ? 'italic' : undefined}>{slice}</span>
+      {full && '.'}
+      <span
+        aria-hidden="true"
+        className="caret-blink ml-[0.05em] inline-block w-[0.08em] translate-y-[0.06em] bg-ink align-baseline"
+        style={{ height: '0.78em' }}
+      />
+      <span className="sr-only">{word}.</span>
+    </>
+  );
+}
+
 function StatusPill({ status, label }: { status: FeedStatus; label: string }) {
   const dot =
     status === 'live'
@@ -135,11 +226,14 @@ export function Landing() {
               </span>
             </div>
 
-            <h1 className="display mt-5 text-[42px] leading-[0.94] text-ink lg:mt-7 lg:text-[76px]">
+            <h1
+              aria-label="Climate risk is a structural driver of expected loss in South-East Asia."
+              className="display mt-5 text-[42px] leading-[0.94] text-ink lg:mt-7 lg:text-[76px]"
+            >
               Climate risk is a
               <span className="italic"> structural driver </span>
-              of expected loss in
-              <span className="italic"> South-East Asia</span>.
+              of expected loss in{' '}
+              <LoopWord word="South-East Asia" italic />
             </h1>
 
             <Hairline className="mt-6 lg:mt-8" strong />

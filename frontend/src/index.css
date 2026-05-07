@@ -158,6 +158,16 @@ input[type='range'].rule-slider::-moz-range-thumb {
 }
 .pulse-mark { animation: pulse-mark 2.4s ease-in-out infinite; }
 
+/* Typewriter caret on the Landing hero */
+@keyframes caret-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+.caret-blink { animation: caret-blink 1.05s steps(1) infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .caret-blink { animation: none; opacity: 0.6; }
+}
+
 /* Print stylesheet — used by Brief screen */
 @media print {
   body { background: #fff; }
